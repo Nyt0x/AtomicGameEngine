@@ -172,14 +172,14 @@ void CubemapGenerator::SaveCubemapXML()
     name = prefix + GetFaceName(FACE_NEGATIVE_Z) + ".png";
     rootElem.CreateChild("face").SetAttribute("name", name);
 
-    String xmlPath = outputPathAbsolute_ + namePrefix_ + ".xml";
+    String xmlPath = outputPathAbsolute_ + namePrefix_ + ".cubemap";
 
     SharedPtr<File> file(new File(context_, xmlPath, FILE_WRITE));
     xmlFile->Save(*file, "    ");
     file->Close();
 
     ResourceCache* cache = GetSubsystem<ResourceCache>();
-    TextureCube* texcube = cache->GetResource<TextureCube>(resourcePath_ + namePrefix_ + ".xml");
+    TextureCube* texcube = cache->GetResource<TextureCube>(resourcePath_ + namePrefix_ + ".cubemap");
     if (texcube)
         cache->ReloadResource(texcube);
 
