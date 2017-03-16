@@ -34,6 +34,7 @@
 #include "SceneImporter.h"
 #include "MaterialImporter.h"
 #include "TextureImporter.h"
+#include "TextureCubeImporter.h"
 #include "PrefabImporter.h"
 #include "JavascriptImporter.h"
 #include "JSONImporter.h"
@@ -267,7 +268,7 @@ bool Asset::CreateImporter()
         textureFormats.Push(".jpg");
         textureFormats.Push(".png");
         textureFormats.Push(".tga");
-        textureFormats.Push(".dds");
+		textureFormats.Push(".dds");
 
         // todo, externalize recognizers
         if (ext == ".fbx" || ext == ".blend" || ext == ".dae" || ext == ".mdl")
@@ -330,6 +331,10 @@ bool Asset::CreateImporter()
         {
             importer_ = new CSharpImporter(context_, this);
         }
+		else if (ext == ".cubemap")
+		{
+			importer_ = new TextureCubeImporter(context_, this);
+		}
         else if (textureFormats.Contains(ext))
         {
             importer_ = new TextureImporter(context_, this);
