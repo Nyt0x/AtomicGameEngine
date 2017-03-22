@@ -38,7 +38,8 @@
 namespace ToolCore
 {
 
-	TextureCubeImporter::TextureCubeImporter(Context* context, Asset *asset) : AssetImporter(context, asset)
+	TextureCubeImporter::TextureCubeImporter(Context* context, Asset *asset) : AssetImporter(context, asset),
+		compressTextures_(false), forceReImport_(false), compressedSizeCubemapFace_(0), compressedSizeFullCubemap_(0)
 {
     requiresCacheFile_ = true;
 
@@ -53,6 +54,9 @@ namespace ToolCore
 void TextureCubeImporter::SetDefaults()
 {
     AssetImporter::SetDefaults();
+
+	compressedSizeCubemapFace_ = 0;
+	compressedSizeFullCubemap_ = 0;
 }
 
 bool TextureCubeImporter::Import()
@@ -73,9 +77,47 @@ bool TextureCubeImporter::Import()
 		FileSystem* fileSystem = GetSubsystem<FileSystem>();
 
 		String cachedCubemapPath = cachePath + "CUBEMAP/" + asset_->GetGUID() + ".cubemap";
-		
+
 		if (fileSystem->FileExists(cachedCubemapPath))
-			fileSystem->Delete(cachedCubemapPath);
+		{
+			if (forceReImport_)
+			{
+				XMLFile* tmpLoadParameters_ = new XMLFile(context_);
+				if (tmpLoadParameters_->Load(*file))
+				{
+					XMLElement textureElem = loadParameters_->GetRoot();
+					XMLElement imageElem = textureElem.GetChild("image");
+
+					// Single image and multiple faces with layout
+					if (imageElem)
+					{
+						String name = imageElem.GetAttribute("name");
+						
+						if (!GetPath(name).Empty())
+							fileSystem->Delete(name);
+					}
+					// Face per image
+					else
+					{
+						XMLElement faceElem = textureElem.GetChild("face");
+						while (faceElem)
+						{
+							String name = faceElem.GetAttribute("name");
+
+							// If path is empty, add the XML file path
+							if (!GetPath(name).Empty())
+								fileSystem->Delete(name);
+						}
+					}
+
+					fileSystem->Delete(cachedCubemapPath);
+				}
+			} 
+			else
+			{
+				return true;
+			}
+		}
 
 		fileSystem->CreateDirs(cachePath, "CUBEMAP/");
 
@@ -107,15 +149,50 @@ bool TextureCubeImporter::Import()
 			if (!image)
 				return false;
 
-			//Save image as dds
-			String compressedPath = cachePath + "CUBEMAP/" + asset_->GetGUID() + texName + ".dds";
-			if (fileSystem->FileExists(compressedPath))
-				fileSystem->Delete(compressedPath);
+			bool saveSucceded = false;
+			String imagePath;
 
-			if (image->SaveDDS(compressedPath))
+			if (compressTextures_)
+			{
+				float resizefactor;
+				float width = image->GetWidth();
+				float height = image->GetHeight();
+
+				if (width > compressedSizeFullCubemap_ || height > compressedSizeFullCubemap_)
+				{
+					if (width >= height)
+					{
+						resizefactor = compressedSizeFullCubemap_ / width;
+					}
+					else
+					{
+						resizefactor = compressedSizeFullCubemap_ / height;
+					}
+
+					image->Resize(width*resizefactor, height*resizefactor);
+				}
+
+				//Save image as dds
+				String imagePath = cachePath + "CUBEMAP/" + asset_->GetGUID() + texName + ".dds";
+				if (fileSystem->FileExists(imagePath))
+					fileSystem->Delete(imagePath);
+
+				saveSucceded = image->SaveDDS(imagePath);
+			} 
+			else
+			{
+				//Save image as png
+				imagePath = cachePath + "CUBEMAP/" + asset_->GetGUID() + texName + ".png";
+				if (fileSystem->FileExists(imagePath))
+					fileSystem->Delete(imagePath);
+
+				saveSucceded = image->SavePNG(imagePath);
+			}
+
+			if (saveSucceded)
 			{
 				//Modify xml node to point to correct image name
-				imageElem.SetAttribute("name", compressedPath);
+				imageElem.SetAttribute("name", imagePath);
 			}
 		}
 		// Face per image
@@ -137,15 +214,50 @@ bool TextureCubeImporter::Import()
 				if (!image)
 					continue;
 
-				//Save image as dds
-				String compressedPath = cachePath + "CUBEMAP/" + asset_->GetGUID() + texName + ".dds";
-				if (fileSystem->FileExists(compressedPath))
-					fileSystem->Delete(compressedPath);
+				bool saveSucceded = false;
+				String imagePath;
 
-				if (image->SaveDDS(compressedPath))
+				if (compressTextures_)
+				{
+					float resizefactor;
+					float width = image->GetWidth();
+					float height = image->GetHeight();
+
+					if (width > compressedSizeCubemapFace_ || height > compressedSizeCubemapFace_)
+					{
+						if (width >= height)
+						{
+							resizefactor = compressedSizeCubemapFace_ / width;
+						}
+						else
+						{
+							resizefactor = compressedSizeCubemapFace_ / height;
+						}
+
+						image->Resize(width*resizefactor, height*resizefactor);
+					}
+
+					//Save image as dds
+					String imagePath = cachePath + "CUBEMAP/" + asset_->GetGUID() + texName + ".dds";
+					if (fileSystem->FileExists(imagePath))
+						fileSystem->Delete(imagePath);
+
+					saveSucceded = image->SaveDDS(imagePath);
+				}
+				else
+				{
+					//Save image as png
+					imagePath = cachePath + "CUBEMAP/" + asset_->GetGUID() + texName + ".png";
+					if (fileSystem->FileExists(imagePath))
+						fileSystem->Delete(imagePath);
+
+					saveSucceded = image->SavePNG(imagePath);
+				}
+
+				if (saveSucceded)
 				{
 					//Modify xml node to point to correct image name
-					faceElem.SetAttribute("name", compressedPath);
+					imageElem.SetAttribute("name", imagePath);
 				}
 
 				faceElem = faceElem.GetNext("face");
@@ -164,6 +276,17 @@ void TextureCubeImporter::ApplyProjectImportConfig()
 {
     if (ImportConfig::IsLoaded())
     {
+		VariantMap tiParameters;
+		ImportConfig::ApplyConfig(tiParameters);
+		VariantMap::ConstIterator itr = tiParameters.Begin();
+
+		for (; itr != tiParameters.End(); itr++)
+		{
+			if (itr->first_ == "tiProcess_CompressTextures")
+				compressTextures_ = itr->second_.GetBool();
+			else if(itr->first_ == "tiProcess_ForceReImport")
+				forceReImport_ = itr->second_.GetBool();
+		}
     }
 }
 
@@ -176,6 +299,12 @@ bool TextureCubeImporter::LoadSettingsInternal(JSONValue& jsonRoot)
 
     SetDefaults();
 
+	if (import.Get("compressionCubemapFaceSize").IsNumber())
+		compressedSizeCubemapFace_ = (CompressedFormat)import.Get("compressionCubemapFaceSize").GetInt();
+	
+	if (import.Get("compressionFullCubemapSize").IsNumber())
+		compressedSizeFullCubemap_ = (CompressedFormat)import.Get("compressionFullCubemapSize").GetInt();
+
     return true;
 }
 
@@ -185,6 +314,8 @@ bool TextureCubeImporter::SaveSettingsInternal(JSONValue& jsonRoot)
         return false;
 
     JSONValue import(JSONValue::emptyObject);
+	import.Set("compressionCubemapFaceSize", compressedSizeCubemapFace_);
+	import.Set("compressionFullCubemapSize", compressedSizeFullCubemap_);
 
     jsonRoot.Set("TextureCubeImporter", import);
 
