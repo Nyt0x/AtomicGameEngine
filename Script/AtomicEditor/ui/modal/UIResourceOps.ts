@@ -20,7 +20,6 @@
 // THE SOFTWARE.
 //
 
-import EditorEvents = require("editor/EditorEvents");
 import EditorUI = require("../EditorUI");
 import ModalWindow = require("./ModalWindow");
 import ResourceOps = require("resources/ResourceOps");
@@ -64,7 +63,7 @@ export class ResourceDelete extends ModalWindow {
                 var db = ToolCore.getAssetDatabase();
                 db.deleteAsset(this.asset);
 
-                this.sendEvent(EditorEvents.DeleteResourceNotification, eventData);
+                this.sendEvent(Editor.EditorDeleteResourceNotificationEventData(eventData));
 
                 return true;
             }
@@ -187,7 +186,7 @@ export class CreateComponent extends ModalWindow {
 
                         this.hide();
 
-                        this.sendEvent(EditorEvents.EditResource, { path: outputFile });
+                        this.sendEvent(Editor.EditorEditResourceEventData({ path: outputFile, lineNumber: 0 }));
 
                     }
 
@@ -265,7 +264,7 @@ export class CreateScript extends ModalWindow {
 
                 if (selectedTemplate) {
                     // Check to see if we have a file extension.  If we don't then use the one defined in the template
-                    if (outputFile.indexOf(".") == -1) {
+                    if (outputFile.lastIndexOf(`.${selectedTemplate.ext}`) != outputFile.length - selectedTemplate.ext.length) {
                         outputFile += selectedTemplate.ext;
                     }
 
@@ -273,7 +272,7 @@ export class CreateScript extends ModalWindow {
 
                         this.hide();
 
-                        this.sendEvent(EditorEvents.EditResource, { path: outputFile });
+                        this.sendEvent(Editor.EditorEditResourceEventData({ path: outputFile, lineNumber: 0 }));
 
                     }
 
@@ -331,7 +330,7 @@ export class CreateScene extends ModalWindow {
 
                     this.hide();
 
-                    this.sendEvent(EditorEvents.EditResource, { path: outputFile });
+                    this.sendEvent(Editor.EditorEditResourceEventData({ path: outputFile, lineNumber: 0 }));
 
                 }
 
@@ -383,7 +382,7 @@ export class CreateMaterial extends ModalWindow {
 
                     this.hide();
 
-                    this.sendEvent(EditorEvents.EditResource, { path: outputFile });
+                    this.sendEvent(Editor.EditorEditResourceEventData({ path: outputFile, lineNumber: 0 }));
 
                 }
 
@@ -442,14 +441,14 @@ export class RenameAsset extends ModalWindow {
                     let oldPath = this.asset.path;
                     this.asset.rename(this.nameEdit.text);
 
-                    let eventData: EditorEvents.RenameResourceEvent = {
+                    let eventData: Editor.EditorRenameResourceNotificationEvent = {
                         path: oldPath,
                         newPath: this.asset.path,
                         newName: this.nameEdit.text,
                         asset: this.asset
                     };
 
-                    this.sendEvent(EditorEvents.RenameResourceNotification, eventData);
+                    this.sendEvent(Editor.EditorRenameResourceNotificationEventData(eventData));
                 }
 
                 return true;

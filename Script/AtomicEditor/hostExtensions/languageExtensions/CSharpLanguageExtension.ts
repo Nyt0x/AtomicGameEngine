@@ -20,13 +20,12 @@
 // THE SOFTWARE.
 //
 
-import * as EditorEvents from "../../editor/EditorEvents";
 import EditorUI = require("ui/EditorUI");
 
 /**
 * Resource extension that supports the web view typescript extension
 */
-export default class CSharpLanguageExtension implements Editor.HostExtensions.ResourceServicesEventListener, Editor.HostExtensions.ProjectServicesEventListener {
+export default class CSharpLanguageExtension extends Atomic.ScriptObject implements Editor.HostExtensions.ResourceServicesEventListener, Editor.HostExtensions.ProjectServicesEventListener {
     name: string = "HostCSharpLanguageExtension";
     description: string = "This service supports the csharp language.";
 
@@ -40,9 +39,6 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
     private menuCreated = false;
     /** Reference to the compileOnSaveMenuItem */
     private compileOnSaveMenuItem: Atomic.UIMenuItem;
-
-    //** A script object so we can take part in event handling
-    private eventObject = new Atomic.ScriptObject();
 
     /**
     * Determines if the file name/path provided is something we care about
@@ -95,7 +91,7 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
     * This could be when someone adds a CS or assembly file to a vanilla project
     * @param  {Editor.EditorEvents.EditResourceEvent} ev
     */
-    edit(ev: Editor.EditorEvents.EditResourceEvent) {
+    edit(ev: Editor.EditorEditResourceEvent) {
         if (this.isValidFiletype(ev.path)) {
 
             if (this.isNETProject) {
@@ -106,17 +102,17 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
 
     /**
     * Handle the delete.  This should delete the corresponding javascript file
-    * @param  {Editor.EditorEvents.DeleteResourceEvent} ev
+    * @param  {Editor.EditorDeleteResourceEvent} ev
     */
-    delete(ev: Editor.EditorEvents.DeleteResourceEvent) {
+    delete(ev: Editor.EditorDeleteResourceEvent) {
 
     }
 
     /**
     * Handle the rename.  Should rename the corresponding .js file
-    * @param  {Editor.EditorEvents.RenameResourceEvent} ev
+    * @param  {Editor.EditorRenameResourceNotificationEvent} ev
     */
-    rename(ev: Editor.EditorEvents.RenameResourceEvent) {
+    rename(ev: Editor.EditorRenameResourceNotificationEvent) {
 
     }
 
@@ -125,7 +121,7 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
     * @param  {Editor.EditorEvents.SaveResourceEvent} ev
     * @return {[type]}
     */
-    save(ev: Editor.EditorEvents.SaveResourceEvent) {
+    save(ev: Editor.EditorSaveResourceEvent) {
 
         if (Atomic.getExtension(ev.path) != ".cs") {
             return;
@@ -144,7 +140,7 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
     * Called when the project is being loaded to allow the typescript language service to reset and
     * possibly compile
     */
-    projectLoaded(ev: Editor.EditorEvents.LoadProjectEvent) {
+    projectLoaded(ev: Editor.EditorLoadProjectEvent) {
         // got a load, we need to reset the language service
         this.isNETProject = false;
 
@@ -162,7 +158,7 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
             this.isNETProject = true;
             this.configureNETProjectMenu();
 
-            this.eventObject.subscribeToEvent("NETBuildResult", (eventData:ToolCore.NETBuildResultEvent) => {
+            this.subscribeToEvent(ToolCore.NETBuildResultEvent((eventData:ToolCore.NETBuildResultEvent) => {
 
                 if (!eventData.success) {
 
@@ -182,7 +178,7 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
 
                 }
 
-            });
+            }));
         }
     }
 
@@ -194,7 +190,7 @@ export default class CSharpLanguageExtension implements Editor.HostExtensions.Re
         this.serviceRegistry.uiServices.removePluginMenuItemSource("AtomicNET");
         this.menuCreated = false;
         this.isNETProject = false;
-        this.eventObject.unsubscribeFromAllEvents();
+        this.unsubscribeFromAllEvents();
     }
 
     /*** UIService implementation ***/

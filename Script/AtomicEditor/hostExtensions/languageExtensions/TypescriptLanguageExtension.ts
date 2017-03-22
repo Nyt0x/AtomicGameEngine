@@ -20,8 +20,6 @@
 // THE SOFTWARE.
 //
 
-import * as EditorEvents from "../../editor/EditorEvents";
-
 /**
  * Default compiler options to use for compilation.  If there
  * is a compiler option block in a tsconfig.json located in the project,
@@ -45,7 +43,7 @@ const defaultCompilerOptions = {
 /**
  * Resource extension that supports the web view typescript extension
  */
-export default class TypescriptLanguageExtension implements Editor.HostExtensions.ResourceServicesEventListener, Editor.HostExtensions.ProjectServicesEventListener {
+export default class TypescriptLanguageExtension extends Atomic.ScriptObject implements Editor.HostExtensions.ResourceServicesEventListener, Editor.HostExtensions.ProjectServicesEventListener {
     name: string = "HostTypeScriptLanguageExtension";
     description: string = "This service supports the typescript webview extension.";
 
@@ -79,6 +77,7 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
     private buildTsConfig(): any {
         // only build out a tsconfig.atomic if we actually have typescript files in the project
         let projectFiles: Array<string> = [];
+        let hasJsFiles = false;
         const slashedProjectPath = Atomic.addTrailingSlash(ToolCore.toolSystem.project.projectPath);
 
         //scan all the files in the project for any typescript files and add them to the project
@@ -103,7 +102,12 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
         let compilerOptions = defaultCompilerOptions;
         Atomic.fileSystem.scanDir(ToolCore.toolSystem.project.resourcePath, "*.js", Atomic.SCAN_FILES, true).forEach(filename => {
             let fn = Atomic.addTrailingSlash(ToolCore.toolSystem.project.resourcePath) + filename;
-            projectFiles.push(Atomic.addTrailingSlash(ToolCore.toolSystem.project.resourcePath) + filename);
+            // if the .js file matches up to a .ts file already loaded, then skip it
+            let tsfn = filename.replace(/\.js$/, ".ts");
+            if (projectFiles.indexOf(tsfn) == -1) {
+                hasJsFiles = true;
+                projectFiles.push(fn);
+            }
         });
 
         // First we need to load in a copy of the lib.es6.d.ts that is necessary for the hosted typescript compiler
@@ -159,6 +163,9 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
         // set the base url
         compilerOptions["baseUrl"] = ToolCore.toolSystem.project.resourcePath;
 
+        // enable JS files in the TS Compiler if we have js files
+        compilerOptions.allowJs = hasJsFiles;
+
         let tsConfig = {
             compilerOptions: compilerOptions,
             files: projectFiles
@@ -199,9 +206,9 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
     /**
      * Handle when a new file is loaded and we have not yet configured the editor for TS.
      * This could be when someone adds a TS file to a vanilla project
-     * @param  {Editor.EditorEvents.EditResourceEvent} ev
+     * @param  {Editor.EditorEditResourceEvent} ev
      */
-    edit(ev: Editor.EditorEvents.EditResourceEvent) {
+    edit(ev: Editor.EditorEditResourceEvent) {
         if (this.isValidFiletype(ev.path)) {
             // update ts config in case we have a new resource
             let tsConfig = this.buildTsConfig();
@@ -215,9 +222,9 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
 
     /**
      * Handle the delete.  This should delete the corresponding javascript file
-     * @param  {Editor.EditorEvents.DeleteResourceEvent} ev
+     * @param  {Editor.EditorDeleteResourceEvent} ev
      */
-    delete(ev: Editor.EditorEvents.DeleteResourceEvent) {
+    delete(ev: Editor.EditorDeleteResourceEvent) {
         if (this.isValidFiletype(ev.path)) {
             // console.log(`${this.name}: received a delete resource event`);
 
@@ -228,21 +235,21 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
                 console.log(`${this.name}: deleting corresponding .js file`);
                 ToolCore.assetDatabase.deleteAsset(jsFileAsset);
 
-                let eventData: EditorEvents.DeleteResourceEvent = {
+                let eventData : Editor.EditorDeleteResourceNotificationEvent = {
                     path: jsFile
                 };
 
                 this.setTsConfigOnWebView(this.buildTsConfig());
-                this.serviceRegistry.sendEvent(EditorEvents.DeleteResourceNotification, eventData);
+                this.sendEvent(Editor.EditorDeleteResourceNotificationEventData(eventData));
             }
         }
     }
 
     /**
      * Handle the rename.  Should rename the corresponding .js file
-     * @param  {Editor.EditorEvents.RenameResourceEvent} ev
+     * @param  {Editor.EditorRenameResourceNotificationEvent} ev
      */
-    rename(ev: Editor.EditorEvents.RenameResourceEvent) {
+    rename(ev: Editor.EditorRenameResourceNotificationEvent) {
         if (this.isValidFiletype(ev.path)) {
             // console.log(`${this.name}: received a rename resource event`);
 
@@ -254,7 +261,7 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
                 console.log(`${this.name}: renaming corresponding .js file`);
                 jsFileAsset.rename(ev.newName);
 
-                let eventData: EditorEvents.RenameResourceEvent = {
+                let eventData: Editor.EditorRenameResourceNotificationEvent = {
                     path: jsFile,
                     newPath: jsFileNew,
                     newName: ev.newName,
@@ -262,17 +269,16 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
                 };
 
                 this.setTsConfigOnWebView(this.buildTsConfig());
-                this.serviceRegistry.sendEvent(EditorEvents.RenameResourceNotification, eventData);
+                this.sendEvent(Editor.EditorRenameResourceNotificationEventData(eventData));
             }
         }
     }
 
     /**
      * Handles the save event and detects if a typescript file has been added to a non-typescript project
-     * @param  {Editor.EditorEvents.SaveResourceEvent} ev
-     * @return {[type]}
+     * @param  ev
      */
-    save(ev: Editor.EditorEvents.SaveResourceEvent) {
+    save(ev: Editor.EditorSaveResourceEvent) {
         // let's check to see if we have created a typescript file
         if (!this.isTypescriptProject) {
             if (Atomic.getExtension(ev.path) == ".ts") {
@@ -288,7 +294,7 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
      * Called when the project is being loaded to allow the typescript language service to reset and
      * possibly compile
      */
-    projectLoaded(ev: Editor.EditorEvents.LoadProjectEvent) {
+    projectLoaded(ev: Editor.EditorLoadProjectEvent) {
         // got a load, we need to reset the language service
         this.isTypescriptProject = false;
         //scan all the files in the project for any typescript files so we can determine if this is a typescript project
@@ -308,6 +314,7 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
         this.compileOnSaveMenuItem = null;
         this.menuCreated = false;
         this.isTypescriptProject = false;
+        this.unsubscribeFromAllEvents();
     }
 
     /*** UIService implementation ***/
@@ -375,6 +382,7 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
 
       // Don't use fully qualified path in the persistent tsconfig file, just use a relative path from the tsconfig
       tsconfig.compilerOptions["baseUrl"] = "./Resources";
+      tsconfig.compilerOptions.allowJs = false;
 
       tsconfigFile.writeString(JSON.stringify(tsconfig, null, 4));
       tsconfigFile.close();
@@ -401,6 +409,12 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
     doFullCompile() {
         const editor = this.serviceRegistry.uiServices.getCurrentResourceEditor();
         if (editor && editor.typeName == "JSResourceEditor" && this.isValidFiletype(editor.fullPath)) {
+            this.sendEvent(Editor.EditorModalEventData({
+              type: Editor.EDITOR_MODALINFO,
+              title: "Compiling TypeScript",
+              message: "Compiling TypeScript..."
+            }));
+
             const jsEditor = <Editor.JSResourceEditor>editor;
             jsEditor.webView.webClient.executeJavaScript(`TypeScript_DoFullCompile('${JSON.stringify(this.buildTsConfig())}');`);
         } else {
@@ -443,6 +457,21 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
     }) {
         // get the name of the resources directory without preceding path
         let resourceDir = ToolCore.toolSystem.project.resourcePath.replace(Atomic.addTrailingSlash(ToolCore.toolSystem.project.projectPath), "");
+        let links = {};
+        let linkId = 0;
+
+        // choose different colors based upon if we are in a dark theme or light theme
+        let successColor = "#00ff00";
+        let errorColor = "#e3e02b";
+        let infoColor = "#888888";
+        const currentSkin = this.serviceRegistry.projectServices.getApplicationPreference("uiData", "skinPath", "");
+        if (currentSkin.indexOf("light") != -1) {
+            successColor = "#006600";
+            errorColor = "#7f5f04";
+            infoColor = "#333333";
+        }
+
+        let errors = false;
         let messageArray = results.annotations.filter(result => {
             // If we are compiling the lib.d.ts or some other built-in library and it was successful, then
             // we really don't need to display that result since it's just noise.  Only display it if it fails
@@ -454,17 +483,34 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
 
             // Clean up the path for display
             let file = result.file.replace(ToolCore.toolSystem.project.projectPath, "");
-            let message = `<color #888888>${file}: </color>`;
+            let message = `<color ${infoColor}>${file}: </color>`;
             if (result.type == "success") {
-                message += `<color #00ff00>${result.text}</color>`;
+                message += `<color ${successColor}>${result.text}</color>`;
             } else {
-                message += `<color #e3e02b>${result.text} at line ${result.row} col ${result.column}</color>`;
+                message += `<color ${errorColor}>${result.text} at line ${result.row + 1} col ${result.column}</color> <widget TBSkinImage: skin: MagnifierBitmap, text:"..." id: link${linkId}>`;
+                links["link" + linkId] = result;
+                linkId++;
+                errors = true;
             }
             return message;
         }).join("\n");
 
         if (messageArray.length == 0) {
             messageArray = "Success";
+        }
+
+        if (errors) {
+            this.sendEvent(Editor.EditorModalEventData({
+              type: Editor.EDITOR_MODALINFO,
+              title: "Compiling TypeScript",
+              message: "Errors detected while compiling TypeScript."
+            }));
+        } else {
+            this.sendEvent(Editor.EditorModalEventData({
+              type: Editor.EDITOR_MODALINFO,
+              title: "Compiling TypeScript",
+              message: "Successfully compiled TypeScript."
+            }));
         }
 
         let message = [
@@ -476,6 +522,22 @@ export default class TypescriptLanguageExtension implements Editor.HostExtension
             `Compilation Completed in ${results.duration}ms`
         ].join("\n");
 
-        this.serviceRegistry.uiServices.showModalError("TypeScript Compilation Results", message);
+        let window = this.serviceRegistry.uiServices.showNonModalWindow("TypeScript Compilation Results", "AtomicEditor/editor/ui/typescriptresults.tb.txt", (ev:Atomic.UIWidgetEvent) => {
+            if (ev.type == Atomic.UI_EVENT_TYPE.UI_EVENT_TYPE_CLICK) {
+                if (ev.target.id == "close") {
+                  window.close();
+                } else {
+                    let diag = links[ev.target.id];
+                    if (diag) {
+                        console.log(`Load editor: ${diag.file}:${diag.row + 1}`);
+                        this.serviceRegistry.uiServices.loadResourceEditor(diag.file, diag.row + 1);
+                    }
+                }
+            }
+        });
+
+        let textField = window.getWidget<Atomic.UIEditField>("msg");
+        textField.setText(message);
+        textField.reformat(true);
     }
 }

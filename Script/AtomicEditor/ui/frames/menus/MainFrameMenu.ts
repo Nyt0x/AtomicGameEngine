@@ -21,7 +21,6 @@
 //
 
 import strings = require("../../EditorStrings");
-import EditorEvents = require("../../../editor/EditorEvents");
 import EditorUI = require("../../EditorUI");
 import MenuItemSources = require("./MenuItemSources");
 import Preferences = require("editor/Preferences");
@@ -41,7 +40,7 @@ class MainFrameMenu extends Atomic.ScriptObject {
         MenuItemSources.createMenuItemSource("menu tools", toolsItems);
         MenuItemSources.createMenuItemSource("menu developer", developerItems);
         MenuItemSources.createMenuItemSource("menu help", helpItems);
-
+        this.goScreenshot = 0;
     }
 
     createPluginMenuItemSource(id: string, items: any): Atomic.UIMenuItemSource {
@@ -61,6 +60,16 @@ class MainFrameMenu extends Atomic.ScriptObject {
                 var developerMenuItemSource = MenuItemSources.getMenuItemSource("menu developer");
                 developerMenuItemSource.removeItemWithStr("Plugins");
                 this.pluginMenuItemSource = null;
+            }
+        }
+    }
+
+    handleScreenshot(ev) {
+        if ( this.goScreenshot > 0 ) {
+            this.goScreenshot--;
+            if ( this.goScreenshot == 0 ) {
+                EditorUI.getShortcuts().invokeScreenshot();
+                this.unsubscribeFromEvent("Update");
             }
         }
     }
@@ -140,7 +149,7 @@ class MainFrameMenu extends Atomic.ScriptObject {
         } else if (target.id == "menu file popup") {
             if (refid == "quit") {
 
-                this.sendEvent("ExitRequested");
+                this.sendEvent(Atomic.ExitRequestedEventType);
                 return true;
 
             }
@@ -171,18 +180,18 @@ class MainFrameMenu extends Atomic.ScriptObject {
 
                 }
 
-                var requestProjectLoad = () => this.sendEvent(EditorEvents.RequestProjectLoad, { path: path });
+                var requestProjectLoad = () => this.sendEvent(Editor.RequestProjectLoadEventData({ path: path }));
 
                 if (ToolCore.toolSystem.project) {
 
-                    this.subscribeToEvent(EditorEvents.ProjectClosed, () => {
+                    this.subscribeToEvent(Editor.EditorProjectClosedEvent(() => {
 
-                        this.unsubscribeFromEvent(EditorEvents.ProjectClosed);
+                        this.unsubscribeFromEvent(Editor.EditorProjectClosedEventType);
                         requestProjectLoad();
 
-                    });
+                    }));
 
-                    this.sendEvent(EditorEvents.CloseProject);
+                    this.sendEvent(Editor.EditorCloseProjectEventType);
 
                 } else {
 
@@ -196,7 +205,7 @@ class MainFrameMenu extends Atomic.ScriptObject {
 
             if (refid == "file close project") {
 
-                this.sendEvent(EditorEvents.CloseProject);
+                this.sendEvent(Editor.EditorCloseProjectEventType);
 
                 return true;
 
@@ -213,13 +222,33 @@ class MainFrameMenu extends Atomic.ScriptObject {
             }
 
             if (refid == "file save all") {
-                this.sendEvent(EditorEvents.SaveAllResources);
+                this.sendEvent(Editor.EditorSaveAllResourcesEventType);
                 return true;
             }
 
             return false;
 
         } else if (target.id == "menu developer popup") {
+
+            if (refid == "toggle theme") {
+                Preferences.getInstance().toggleTheme();
+                return true;
+            }
+
+            if (refid == "toggle codeeditor") {
+                var ctheme = EditorUI.getEditor().getApplicationPreference( "codeEditor", "theme", "");
+                if ( ctheme == "vs-dark" )
+                    EditorUI.getEditor().setApplicationPreference( "codeEditor", "theme", "vs");
+                else
+                    EditorUI.getEditor().setApplicationPreference( "codeEditor", "theme", "vs-dark");
+                return true;
+            }
+
+            if ( refid == "screenshot") {
+                this.subscribeToEvent(Atomic.UpdateEvent((ev) => this.handleScreenshot(ev)));
+                this.goScreenshot = 19;  // number of ticks to wait for the menu to close
+                return true;
+            }
 
             if (refid == "developer show console") {
                 Atomic.ui.showConsole(true);
@@ -263,6 +292,26 @@ class MainFrameMenu extends Atomic.ScriptObject {
                 return true;
             }
 
+            // Development UI adjustments for Project Frame
+
+            if (refid.indexOf("developer ui width") != -1) {
+
+                let scale = 1;
+                scale = refid.indexOf("1.5x") == -1 ? scale : 1.5;
+                scale = refid.indexOf("2x") == -1 ? scale : 2;
+                scale = refid.indexOf("3x") == -1 ? scale : 3;
+                scale = refid.indexOf("4x") == -1 ? scale : 4;
+
+                EditorUI.getEditor().setApplicationPreference( "developmentUI", "projectFrameWidthScalar", scale.toString());
+
+                this.sendEvent("DevelopmentUIEvent", {
+                    "subEvent" : "ScaleFrameWidth",
+                    "arg0" : "projectframe",
+                    "arg1" : scale
+                });
+
+            }
+
             // If we got here, then we may have been injected by a plugin.  Notify the plugins
             return ServiceLocator.uiServices.menuItemClicked(refid);
 
@@ -271,11 +320,11 @@ class MainFrameMenu extends Atomic.ScriptObject {
             if (refid == "tools toggle profiler") {
                 Atomic.ui.toggleDebugHud();
                 return true;
-            } if (refid == "tools perf profiler") {                
+            } if (refid == "tools perf profiler") {
                 Atomic.ui.debugHudProfileMode = Atomic.DebugHudProfileMode.DEBUG_HUD_PROFILE_PERFORMANCE;
                 Atomic.ui.showDebugHud(true);
                 return true;
-            } else if (refid == "tools metrics profiler") {                
+            } else if (refid == "tools metrics profiler") {
                 Atomic.ui.debugHudProfileMode = Atomic.DebugHudProfileMode.DEBUG_HUD_PROFILE_METRICS;
                 Atomic.ui.showDebugHud(true);
                 return true;
@@ -337,6 +386,8 @@ class MainFrameMenu extends Atomic.ScriptObject {
 
     }
 
+    goScreenshot: number;
+
 }
 
 export = MainFrameMenu;
@@ -393,7 +444,20 @@ var buildItems = {
 
 
 var developerItems = {
-
+    "UI": {
+        "Project Frame": {
+            "1x": ["developer ui width project 1x"],
+            "1.5x": ["developer ui width project 1.5x"],
+            "2x": ["developer ui width project 2x"],
+            "3x": ["developer ui width project 3x"],
+            "4x": ["developer ui width project 4x"]
+        }
+    },     
+    "Theme": {
+        "Toggle Theme": ["toggle theme"],
+        "Toggle Code Editor Theme": ["toggle codeeditor"]
+    }, 
+    "ScreenShot": ["screenshot", StringID.ShortcutScreenshot],
     "Show Console": ["developer show console"],
     "Clear Preferences": ["developer clear preferences"], //Adds clear preference to developer menu items list
     "Debug": {

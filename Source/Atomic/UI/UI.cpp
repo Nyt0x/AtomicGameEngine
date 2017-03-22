@@ -87,6 +87,7 @@ using namespace tb;
 #include "UISlider.h"
 #include "UIColorWidget.h"
 #include "UIColorWheel.h"
+#include "UIBargraph.h"
 
 #include "SystemUI/SystemUI.h"
 #include "SystemUI/SystemUIEvents.h"
@@ -797,6 +798,14 @@ UIWidget* UI::WrapWidget(tb::TBWidget* widget)
         return nwidget;
     }
 
+    if (widget->IsOfType<TBBarGraph>())
+    {
+        UIBargraph* nwidget = new UIBargraph(context_, false);
+        nwidget->SetWidget(widget);
+        WrapWidget(nwidget, widget);
+        return nwidget;
+    }
+
     if (widget->IsOfType<TBSelectList>())
     {
         UISelectList* nwidget = new UISelectList(context_, false);
@@ -935,6 +944,16 @@ void UI::SetDebugHudProfileMode(DebugHudProfileMode mode)
         return;
 
     hud->SetProfilerMode(mode);
+}
+
+void UI::SetDebugHudRefreshInterval(float seconds)
+{
+    SystemUI::DebugHud* hud = GetSubsystem<SystemUI::DebugHud>();
+
+    if (!hud)
+        return;
+
+    hud->SetProfilerInterval(seconds);
 }
 
 void UI::ShowConsole(bool value)

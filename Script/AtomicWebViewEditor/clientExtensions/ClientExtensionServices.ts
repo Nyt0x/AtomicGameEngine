@@ -35,19 +35,41 @@ interface EventSubscription {
 export class EventDispatcher implements Editor.Extensions.EventDispatcher {
     private subscriptions: EventSubscription[] = [];
 
-    sendEvent(eventType: string, data: any) {
+    sendEvent<T extends Atomic.EventCallbackMetaData>(eventCallbackMetaData:T)
+    sendEvent(eventType: string, data: any)
+    sendEvent(eventTypeOrWrapped: any, data?: any) {
+        let eventType: string;
+        let eventData: any;
+        if (typeof(eventTypeOrWrapped) == "string") {
+            eventType = eventTypeOrWrapped;
+            eventData = data;
+        } else {
+            const metaData = eventTypeOrWrapped as Atomic.EventCallbackMetaData;
+            eventType = metaData._eventType;
+            eventData = metaData._callbackData;
+        }
+
         this.subscriptions.forEach(sub => {
             if (sub.eventName == eventType) {
-                sub.callback(data);
+                sub.callback(eventData);
             }
         });
     }
 
-    subscribeToEvent(eventType, callback) {
-        this.subscriptions.push({
-            eventName: eventType,
-            callback: callback
-        });
+    subscribeToEvent(eventType: string, callback: (...params) => any);
+    subscribeToEvent(wrapped: Atomic.EventMetaData);
+    subscribeToEvent(eventTypeOrWrapped: any, callback?: any) {
+        if (callback) {
+            this.subscriptions.push({
+                eventName: eventTypeOrWrapped,
+                callback: callback
+            });
+        } else {
+            this.subscriptions.push({
+                eventName: eventTypeOrWrapped._eventType,
+                callback: eventTypeOrWrapped._callback
+            });
+        }
     }
 }
 
@@ -106,9 +128,9 @@ export class WebViewServicesProvider extends ServicesProvider<Editor.ClientExten
 
     /**
      * Called when code is loaded
-     * @param  {Editor.EditorEvents.CodeLoadedEvent} ev Event info about the file that is being loaded
+     * @param  {Editor.ClientExtensions.CodeLoadedEvent} ev Event info about the file that is being loaded
      */
-    codeLoaded(ev: Editor.EditorEvents.CodeLoadedEvent) {
+    codeLoaded(ev: Editor.ClientExtensions.CodeLoadedEvent) {
         this.registeredServices.forEach((service) => {
             try {
                 // Notify services that the project has just been loaded
@@ -123,9 +145,9 @@ export class WebViewServicesProvider extends ServicesProvider<Editor.ClientExten
 
     /**
      * Called after code has been saved
-     * @param  {Editor.EditorEvents.SaveResourceEvent} ev
+     * @param  {Editor.ClientExtensions.SaveResourceEvent} ev
      */
-    saveCode(ev: Editor.EditorEvents.CodeSavedEvent) {
+    saveCode(ev: Editor.ClientExtensions.CodeSavedEvent) {
         // run through and find any services that can handle this.
         this.registeredServices.forEach((service) => {
             try {
@@ -142,7 +164,7 @@ export class WebViewServicesProvider extends ServicesProvider<Editor.ClientExten
     /**
      * Called when a resource has been deleted
      */
-    deleteResource(ev: Editor.EditorEvents.DeleteResourceEvent) {
+    deleteResource(ev: Editor.ClientExtensions.DeleteResourceEvent) {
         this.registeredServices.forEach((service) => {
             try {
                 // Verify that the service contains the appropriate methods and that it can delete
@@ -157,9 +179,9 @@ export class WebViewServicesProvider extends ServicesProvider<Editor.ClientExten
 
     /**
      * Called when a resource has been renamed
-     * @param  {Editor.EditorEvents.RenameResourceEvent} ev
+     * @param  {Editor.ClientExtensions.RenameResourceEvent} ev
      */
-    renameResource(ev: Editor.EditorEvents.RenameResourceEvent) {
+    renameResource(ev: Editor.ClientExtensions.RenameResourceEvent) {
         this.registeredServices.forEach((service) => {
             try {
                 // Verify that the service contains the appropriate methods and that it can handle the rename
@@ -190,9 +212,9 @@ export class WebViewServicesProvider extends ServicesProvider<Editor.ClientExten
 
     /**
      * Called when the editor is requesting to be configured for a particular file
-     * @param  {Editor.EditorEvents.EditorFileEvent} ev
+     * @param  {Editor.ClientExtensions.EditorFileEvent} ev
      */
-    configureEditor(ev: Editor.EditorEvents.EditorFileEvent) {
+    configureEditor(ev: Editor.ClientExtensions.EditorFileEvent) {
         this.registeredServices.forEach((service) => {
             try {
                 // Notify services that the project has just been loaded
