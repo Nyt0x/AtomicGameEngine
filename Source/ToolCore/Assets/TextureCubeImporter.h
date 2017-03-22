@@ -40,6 +40,11 @@ public:
 
     Resource* GetResource(const String& typeName = String::EMPTY);
 
+	void SetCompressedCubemapFaceImageSize(unsigned int compressedSize) { compressedSizeCubemapFace_ = compressedSize; }
+	unsigned int GetCompressedCubemapFaceImageSize() { return compressedSizeCubemapFace_; }
+
+	void SetCompressedFullCubemapImageSize(unsigned int compressedSize) { compressedSizeFullCubemap_ = compressedSize; }
+	unsigned int GetCompressedFullCubemapImageSize() { return compressedSizeFullCubemap_; }
 protected:
 
     bool Import();
@@ -50,6 +55,13 @@ protected:
 
 	/// Parameter file acquired during Import.
 	SharedPtr<XMLFile> loadParameters_;
+
+	bool compressTextures_;
+	bool forceReImport_;
+
+	unsigned int compressedSizeCubemapFace_;
+	unsigned int compressedSizeFullCubemap_;
+
 };
 
 }
