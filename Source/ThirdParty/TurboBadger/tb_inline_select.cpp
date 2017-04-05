@@ -19,6 +19,7 @@ TBInlineSelect::TBInlineSelect()
     : m_value(0)
     , m_min(0)
     , m_max(100)
+	, m_step(1)
     , m_modified(false)
 {
     SetSkinBg(TBIDC("TBInlineSelect"));
@@ -119,7 +120,7 @@ bool TBInlineSelect::OnEvent(const TBWidgetEvent &ev)
     }
     else if (ev.type == EVENT_TYPE_CLICK && ev.target->GetID() == TBIDC("dec"))
     {
-        SetValueDouble(GetValueDouble() - 1);
+        SetValueDouble(GetValueDouble() - m_step);
         if (!ev.target->IsCaptured()) {
 
             InvokeModifiedEvent();
@@ -129,7 +130,7 @@ bool TBInlineSelect::OnEvent(const TBWidgetEvent &ev)
     }
     else if (ev.type == EVENT_TYPE_CLICK && ev.target->GetID() == TBIDC("inc"))
     {
-        SetValueDouble(GetValueDouble() + 1);
+        SetValueDouble(GetValueDouble() + m_step);
 
         if (!ev.target->IsCaptured()) {
 

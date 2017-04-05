@@ -68,6 +68,13 @@ void UIInlineSelect::SetLimits(double minimum, double maximum)
 
 }
 
+void UIInlineSelect::SetStep(double step)
+{
+	if (!widget_)
+		return;
+	((TBInlineSelect*)widget_)->SetStep(step);
+
+}
 bool UIInlineSelect::OnEvent(const tb::TBWidgetEvent &ev)
 {
     if (ev.type == EVENT_TYPE_CUSTOM && ev.ref_id == TBIDC("edit_complete"))
