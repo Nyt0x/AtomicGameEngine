@@ -169,8 +169,10 @@ void TBInlineSelect::OnInflate(const INFLATE_INFO &info)
     int min = info.node->GetValueInt("min", GetMinValue());
     int max = info.node->GetValueInt("max", GetMaxValue());
     SetLimits(min, max);
-	double step = static_cast<double>(info.node->GetValueFloat("step", GetStepValue()));
-	SetStep(step);
+    //ATOMIC BEGIN 
+    double step = static_cast<double>(info.node->GetValueFloat("step", GetStepValue()));
+    SetStep(step);
+    //ATOMIC END 
 	TBWidget::OnInflate(info);
 }
 

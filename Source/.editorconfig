@@ -1,0 +1,8 @@
+# It you want to know more about EditorConfig: http://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+[*.{c,cpp,cxx,cc,h,hpp,hxx,hh,inl,bff}]
+indent_size = 4
+indent_style = space

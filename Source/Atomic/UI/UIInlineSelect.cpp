@@ -70,9 +70,9 @@ void UIInlineSelect::SetLimits(double minimum, double maximum)
 
 void UIInlineSelect::SetStep(double step)
 {
-	if (!widget_)
-		return;
-	((TBInlineSelect*)widget_)->SetStep(step);
+    if (!widget_)
+        return;
+    ((TBInlineSelect*)widget_)->SetStep(step);
 
 }
 bool UIInlineSelect::OnEvent(const tb::TBWidgetEvent &ev)

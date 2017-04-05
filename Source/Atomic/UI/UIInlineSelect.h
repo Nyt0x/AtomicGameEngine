@@ -38,7 +38,7 @@ public:
     virtual ~UIInlineSelect();
 
     void SetLimits(double minimum, double maximum);
-	void SetStep(double step);
+    void SetStep(double step);
 
     void SetEditFieldLayoutParams(UILayoutParams* params);
 

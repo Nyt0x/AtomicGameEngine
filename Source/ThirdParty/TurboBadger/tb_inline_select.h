@@ -33,7 +33,9 @@ public:
     virtual AXIS GetAxis() const { return m_layout.GetAxis(); }
 
     void SetLimits(double min, double max);
-	void SetStep(double step) { m_step = step; }
+    //ATOMIC BEGIN 
+    void SetStep(double step) { m_step = step; }
+    //ATOMIC END 
     double GetMinValue() const { return m_min; }
 	double GetMaxValue() const { return m_max; }
 	double GetStepValue() const { return m_step; }
@@ -54,7 +56,9 @@ protected:
     TBLayout m_layout;
     TBEditField m_editfield;
     double m_value;
+    //ATOMIC BEGIN 
     double m_min, m_max, m_step;
+    //ATOMIC END 
     bool m_modified;
 
     void SetValueInternal(double value, bool update_text);
