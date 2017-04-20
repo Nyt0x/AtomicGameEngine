@@ -7,12 +7,11 @@ Current WIP:
 - Improvments over water shader 
     - You can already find an updated WaterHQ version of the water shader 
     - still WIP and not public are: SSR, corrected cubemap and tessendorf waves implementation )
-    
-[WaterShader Improvment]]: https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/2nd%20iteration.gif
-![alt text][WaterShader Improvment]
 
-[SSR WIP]]: https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/SSR%20WIP.gif
-![alt text][SSR WIP]
+![alt text](https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/2nd%20iteration.gif "WaterShader Improvment")
+
+![alt text](https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/SSR%20WIP.gif "SSR WIP")
+
 
 - Bugfixes and cubemap generation improvments.
 - Mod support (pak loading and dedicated mod archive pipeline, not public yet)
