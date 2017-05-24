@@ -6,12 +6,13 @@ Current WIP:
 
 - Improvments over water shader 
     - You can already find an updated WaterHQ version of the water shader 
-    - still WIP and not public are: SSR, corrected cubemap and tessendorf waves implementation )
+    - still WIP and not public are: SSR, corrected cubemap, tessendorf waves implementation and hull/domain/geometry shader support for d3d11. )
 
 ![alt text](https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/2nd%20iteration.gif "WaterShader Improvment")
 
 ![alt text](https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/SSR%20WIP.gif "SSR WIP")
 
+![alt text](https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/Tessellation%20WIP.gif "Tesselation stages (hull/domain) support for d3d11 WIP")
 
 - Bugfixes and cubemap generation improvments.
 - Mod support (pak loading and dedicated mod archive pipeline, not public yet)
