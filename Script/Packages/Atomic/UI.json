@@ -21,8 +21,7 @@
 		    "getWidgetAt<T extends UIWidget>(x: number, y: number, include_children: boolean): T;"
 		],
 		"UIWidget": [
-		    "getWidget<T extends UIWidget>(id: string): T;",
-            "onChanged: (data:any) => void;"
+		    "getWidget<T extends UIWidget>(id: string): T;"
 		]
 	}
 

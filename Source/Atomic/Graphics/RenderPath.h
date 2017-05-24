@@ -178,26 +178,10 @@ struct ATOMIC_API RenderPathCommand
     String vertexShaderName_;
     /// Pixel shader name.
     String pixelShaderName_;
-    /// Geometry shader name.
-    String geometryShaderName_;
-    /// Hull shader name.
-    String hullShaderName_;
-    /// Domain shader name.
-    String domainShaderName_;
-    /// Compute shader name.
-    String computeShaderName_;
     /// Vertex shader defines.
     String vertexShaderDefines_;
     /// Pixel shader defines.
     String pixelShaderDefines_;
-    /// Geometry shader defines.
-    String geometryShaderDefines_;
-    /// Hull shader defines.
-    String hullShaderDefines_;
-    /// Domain shader defines.
-    String domainShaderDefines_;
-    /// Compute shader defines.
-    String computeShaderDefines_;
     /// Textures.
     String textureNames_[MAX_TEXTURE_UNITS];
     /// %Shader parameters.
