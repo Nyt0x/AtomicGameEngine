@@ -14,6 +14,8 @@ Current WIP:
 
 ![alt text](https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/Tessellation%20WIP.gif "Tesselation stages (hull/domain) support for d3d11 WIP")
 
+![alt text](https://github.com/Nyt0x/AtomicGameEngine/blob/master/WIP%20Gif/WIP%20water%20tesselation%20LOD%20naive%20distance%20and%20PN-triangle.gif "Water tesselation using LOD with naive distance and PN-triangle WIP")
+
 - Bugfixes and cubemap generation improvments.
 - Mod support (pak loading and dedicated mod archive pipeline, not public yet)
 
