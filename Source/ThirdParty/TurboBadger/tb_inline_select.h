@@ -40,6 +40,12 @@ public:
 	double GetMaxValue() const { return m_max; }
 	double GetStepValue() const { return m_step; }
 
+    // ATOMIC BEGIN
+    /// set the increment, decrement step size for clicking the buttons
+    void SetStepSize(double value) { m_stepsize = value; }
+    double GetStepSize() const { return m_stepsize; }
+    // ATOMIC END
+
     virtual void SetValueDouble(double value) { SetValueInternal(value, true); }
     virtual double GetValueDouble() { return m_value; }
 
@@ -60,6 +66,9 @@ protected:
     double m_min, m_max, m_step;
     //ATOMIC END 
     bool m_modified;
+    // ATOMIC BEGIN
+    double m_stepsize;
+    // ATOMIC END
 
     void SetValueInternal(double value, bool update_text);
 
