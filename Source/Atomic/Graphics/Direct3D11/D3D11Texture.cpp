@@ -67,7 +67,7 @@ void Texture::SetSRGB(bool enable)
     {
         sRGB_ = enable;
         // If texture had already been created, must recreate it to set the sRGB texture format
-        if (object_.name_)
+        if (object_.ptr_)
             Create();
     }
 }

@@ -33,9 +33,6 @@ public:
     virtual AXIS GetAxis() const { return m_layout.GetAxis(); }
 
     void SetLimits(double min, double max);
-    //ATOMIC BEGIN 
-    void SetStep(double step) { m_step = step; }
-    //ATOMIC END 
     double GetMinValue() const { return m_min; }
 	double GetMaxValue() const { return m_max; }
 	double GetStepValue() const { return m_step; }

@@ -38,7 +38,6 @@ public:
     virtual ~UIInlineSelect();
 
     void SetLimits(double minimum, double maximum);
-    void SetStep(double step);
 
 	/// set and get the inc, dec step size
     void SetStepSize(double step);
