@@ -264,20 +264,12 @@ void BackgroundLoader::FinishBackgroundLoading(BackgroundLoadItem& item)
     // If BeginLoad() phase was successful, call EndLoad() and get the final success/failure result
     if (success)
     {
-#ifdef ATOMIC_PROFILING
+#if ATOMIC_PROFILING
         String profileBlockName("Finish" + resource->GetTypeName());
-
-        Profiler* profiler = owner_->GetSubsystem<Profiler>();
-        if (profiler)
-            profiler->BeginBlock(profileBlockName.CString());
+        ATOMIC_PROFILE_SCOPED(profileBlockName.CString(), PROFILER_COLOR_RESOURCES);
 #endif
         ATOMIC_LOGDEBUG("Finishing background loaded resource " + resource->GetName());
         success = resource->EndLoad();
-
-#ifdef ATOMIC_PROFILING
-        if (profiler)
-            profiler->EndBlock();
-#endif
     }
     resource->SetAsyncLoadState(ASYNC_DONE);
 
@@ -290,6 +282,10 @@ void BackgroundLoader::FinishBackgroundLoading(BackgroundLoadItem& item)
         owner_->SendEvent(E_LOADFAILED, eventData);
     }
 
+    // Store to the cache just before sending the event; use same mechanism as for manual resources
+    if (success || owner_->GetReturnFailedResources())
+        owner_->AddManualResource(resource);
+
     // Send event, either success or failure
     {
         using namespace ResourceBackgroundLoaded;
@@ -300,10 +296,6 @@ void BackgroundLoader::FinishBackgroundLoading(BackgroundLoadItem& item)
         eventData[P_RESOURCE] = resource;
         owner_->SendEvent(E_RESOURCEBACKGROUNDLOADED, eventData);
     }
-
-    // Store to the cache; use same mechanism as for manual resources
-    if (success || owner_->GetReturnFailedResources())
-        owner_->AddManualResource(resource);
 }
 
 }

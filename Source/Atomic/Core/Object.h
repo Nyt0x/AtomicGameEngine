@@ -215,12 +215,20 @@ public:
 
     static ClassID GetClassIDStatic() { static const int typeID = 0; return (ClassID) &typeID; }
     static const Atomic::String& GetTypeNameStatic() { static const Atomic::String typeNameStatic("Object"); return typeNameStatic; }
-
+    /// Send event with parameters to all subscribers.
+    void SendEvent(StringHash eventType, const VariantMap& eventData);
+    /// Block object from sending and receiving events.
+    void SetBlockEvents(bool block) { blockEvents_ = block; }
+    /// Return sending and receiving events blocking status.
+    bool GetBlockEvents() const { return blockEvents_; }
     // ATOMIC END
 
 protected:
     /// Execution context.
     Context* context_;
+
+    void SendEventProfiled(StringHash eventType, VariantMap& eventData);
+    void SendEventNonProfiled(StringHash eventType, VariantMap& eventData);
 
 private:
     /// Find the first event handler with no specific sender.
@@ -234,6 +242,10 @@ private:
 
     /// Event handlers. Sender is null for non-specific handlers.
     LinkedList<EventHandler> eventHandlers_;
+
+    // ATOMIC BEGIN
+    bool blockEvents_;
+    // ATOMIC END
 };
 
 template <class T> T* Object::GetSubsystem() const { return static_cast<T*>(GetSubsystem(T::GetTypeStatic())); }

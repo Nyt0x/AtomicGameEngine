@@ -32,12 +32,12 @@ elseif (ATOMIC_DATABASE_ODBC)
 endif ()
 
 if (WIN32)
-    if (ATOMIC_D3D11) # DirectX 11
-        file (GLOB GRAPHICS_IMPL_SOURCE Graphics/Direct3D11/*.cpp Graphics/Direct3D11/*.h)
+    if (ATOMIC_D3D9) # DirectX 9
+        file (GLOB GRAPHICS_IMPL_SOURCE Graphics/Direct3D9/*.cpp Graphics/Direct3D9/*.h)
     elseif (ATOMIC_OPENGL) # OpenGL
         file (GLOB GRAPHICS_IMPL_SOURCE Graphics/OpenGL/*.cpp Graphics/OpenGL/*.h)
-    else() # DirectX 9
-        file (GLOB GRAPHICS_IMPL_SOURCE Graphics/Direct3D9/*.cpp Graphics/Direct3D9/*.h)
+    elseif(ATOMIC_D3D11) # DirectX 11
+        file (GLOB GRAPHICS_IMPL_SOURCE Graphics/Direct3D11/*.cpp Graphics/Direct3D11/*.h)
     endif()
 else()
     file (GLOB GRAPHICS_IMPL_SOURCE Graphics/OpenGL/*.cpp Graphics/OpenGL/*.h)
@@ -125,24 +125,20 @@ elseif (LINUX)
     target_link_libraries (Atomic pthread GLEW GL dl)
     target_compile_definitions(Atomic PUBLIC -DATOMIC_PLATFORM_LINUX=1)
 elseif (WIN32)
-    option (ATOMIC_D3D11 "Use DirectX 11" ON)
-    option (ATOMIC_OPENGL "Use OpenGL" OFF)
     target_compile_definitions (Atomic PUBLIC -DATOMIC_PLATFORM_WINDOWS=1)
     target_link_libraries (Atomic user32 gdi32 winmm imm32 ole32 oleaut32 version uuid Ws2_32)
-    if (ATOMIC_D3D11) # DirectX 11
-        target_compile_definitions (Atomic PUBLIC -DATOMIC_D3D11=1)
-        target_link_libraries (Atomic d3d11 d3dcompiler dxguid)
+    if (ATOMIC_D3D9) # DirectX 9
+        target_link_libraries (Atomic d3d9 d3dcompiler)
+        target_compile_definitions (Atomic PUBLIC -DATOMIC_D3D9=1)
     elseif(ATOMIC_OPENGL) # OpenGL
         find_package(OpenGL REQUIRED)
         include_directories (${OpenGL_INCLUDE_DIRS})
         link_directories (${OpenGL_LIBRARY_DIRS})
         target_compile_definitions (Atomic PRIVATE ${OpenGL_DEFINITIONS})
-        target_compile_definitions (Atomic PUBLIC -DGLEW_STATIC=1)
         target_link_libraries (Atomic GLEW opengl32 glu32)
-    else() # DirectX 9
-        target_link_libraries (Atomic d3d9 d3dcompiler)
-        target_compile_definitions (Atomic PUBLIC -DATOMIC_D3D9=1)
-        set (ATOMIC_D3D9 1)
+    elseif(ATOMIC_D3D11) # DirectX 11
+        target_compile_definitions (Atomic PUBLIC -DATOMIC_D3D11=1)
+        target_link_libraries (Atomic d3d11 d3dcompiler dxguid)
     endif()
     target_link_libraries(Atomic MojoShader user32 gdi32 winmm imm32 ole32 oleaut32 version uuid Ws2_32)
 
@@ -177,9 +173,9 @@ if (NOT WEB)
     target_link_libraries (Atomic libcurl Civetweb kNet)
 endif()
 
-option (ATOMIC_PROFILING "Enable profiler" ON)
 if (ATOMIC_PROFILING)
     target_compile_definitions (Atomic PUBLIC -DATOMIC_PROFILING=1)
+    target_link_libraries (Atomic easy_profiler)
 endif ()
 
 option (ATOMIC_LOGGING "Enable logging" ON)
@@ -241,12 +237,9 @@ if ($ENV{ATOMIC_BUILD_DIST})
 endif ()
 
 if (MSVC)
-    target_compile_options(Atomic PUBLIC "$<$<CONFIG:Debug>:${ATOMIC_MSVC_RUNTIME}d>")
-    target_compile_options(Atomic PUBLIC "$<$<CONFIG:Release>:${ATOMIC_MSVC_RUNTIME}>")
-    target_compile_options(Atomic PUBLIC "$<$<CONFIG:RelWithDebInfo>:${ATOMIC_MSVC_RUNTIME}>")
-    target_compile_options(Atomic PUBLIC "$<$<CONFIG:MinSizeRel>:${ATOMIC_MSVC_RUNTIME}>")
+    target_compile_options(Atomic PUBLIC $<$<CONFIG:Debug>:${ATOMIC_MSVC_RUNTIME}d> $<$<NOT:$<CONFIG:Debug>>:${ATOMIC_MSVC_RUNTIME}>)
 endif ()
 
 if (UNIX OR MINGW)
-    target_compile_options(Atomic PUBLIC -std=gnu++11)
+    target_compile_options(Atomic PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>)
 endif ()

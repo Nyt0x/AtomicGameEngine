@@ -95,6 +95,8 @@ using namespace tb;
 #include "UIComponent.h"
 #include "UIRadioButton.h"
 #include "UIScrollBar.h"
+#include "UIDockWindow.h"
+#include "UIButtonGrid.h"
 
 #include "SystemUI/SystemUI.h"
 #include "SystemUI/SystemUIEvents.h"
@@ -380,6 +382,9 @@ void UI::Render(bool resetRenderTargets)
 
 void UI::HandlePostUpdate(StringHash eventType, VariantMap& eventData)
 {
+    SendEvent(E_UIUPDATE);
+
+    TBMessageHandler::ProcessMessages();
     TBAnimationManager::Update();
 
     rootWidget_->InvokeProcessStates();
@@ -507,8 +512,6 @@ void UI::HandleUpdate(StringHash eventType, VariantMap& eventData)
         if (tooltip_) tooltip_->Close();
     }
 
-    SendEvent(E_UIUPDATE);
-    TBMessageHandler::ProcessMessages();
 }
 
 UIWidget* UI::GetHoveredWidget()
