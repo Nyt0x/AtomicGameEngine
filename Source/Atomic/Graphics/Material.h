@@ -140,6 +140,14 @@ public:
     void SetVertexShaderDefines(const String& defines);
     /// Set additional pixel shader defines. Separate multiple defines with spaces. Setting defines at the material level causes technique(s) to be cloned as necessary.
     void SetPixelShaderDefines(const String& defines);
+    /// Set additional geometry shader defines. Separate multiple defines with spaces. Setting defines at the material level causes technique(s) to be cloned as necessary.
+    void SetGeometryShaderDefines(const String& defines);
+    /// Set additional hull shader defines. Separate multiple defines with spaces. Setting defines at the material level causes technique(s) to be cloned as necessary.
+    void SetHullShaderDefines(const String& defines);
+    /// Set additional domain shader defines. Separate multiple defines with spaces. Setting defines at the material level causes technique(s) to be cloned as necessary.
+    void SetDomainShaderDefines(const String& defines);
+    /// Set additional compute shader defines. Separate multiple defines with spaces. Setting defines at the material level causes technique(s) to be cloned as necessary.
+    void SetComputeShaderDefines(const String& defines);
     /// Set shader parameter.
     void SetShaderParameter(const String& name, const Variant& value);
     /// Set shader parameter animation.
@@ -161,12 +169,16 @@ public:
     void SetShadowCullMode(CullMode mode);
     /// Set polygon fill mode. Interacts with the camera's fill mode setting so that the "least filled" mode will be used.
     void SetFillMode(FillMode mode);
+    /// Set polygon primitives mode. Interacts with the camera's fill mode setting so that the "least filled" mode will be used.
+    void SetPrimitivesInputType(PrimitiveType mode);
     /// Set depth bias parameters for depth write and compare. Note that the normal offset parameter is not used and will not be saved, as it affects only shadow map sampling during light rendering.
     void SetDepthBias(const BiasParameters& parameters);
     /// Set alpha-to-coverage mode on all passes.
     void SetAlphaToCoverage(bool enable);
-    /// Set line antialiasing on/off. Has effect only on models that consist of line lists.
+	/// Set line antialiasing on/off. Has effect only on models that consist of line lists.
     void SetLineAntiAlias(bool enable);
+    /// Set tessellation amount
+    void SetTessellationAmount(float value);
     /// Set 8-bit render order within pass. Default 128. Lower values will render earlier and higher values later, taking precedence over e.g. state and distance sorting.
     void SetRenderOrder(unsigned char order);
     /// Set whether to use in occlusion rendering. Default true.
@@ -206,6 +218,14 @@ public:
     const String& GetVertexShaderDefines() const { return vertexShaderDefines_; }
     /// Return additional pixel shader defines.
     const String& GetPixelShaderDefines() const { return pixelShaderDefines_; }
+    /// Return additional geometry shader defines.
+    const String& GetGeometryShaderDefines() const { return vertexShaderDefines_; }
+    /// Return additional hull shader defines.
+    const String& GetHullShaderDefines() const { return pixelShaderDefines_; }
+    /// Return additional domain shader defines.
+    const String& GetDomainShaderDefines() const { return vertexShaderDefines_; }
+    /// Return additional compute shader defines.
+    const String& GetComputeShaderDefines() const { return pixelShaderDefines_; }
 
     /// Return shader parameter.
     const Variant& GetShaderParameter(const String& name) const;
@@ -228,6 +248,9 @@ public:
     /// Return polygon fill mode.
     FillMode GetFillMode() const { return fillMode_; }
 
+    /// Return polygon fill mode.
+    PrimitiveType GetPrimitivesInputMode() const { return primitivesInputType_; }
+
     /// Return depth bias.
     const BiasParameters& GetDepthBias() const { return depthBias_; }
 
@@ -236,6 +259,9 @@ public:
 
     /// Return whether line antialiasing is enabled.
     bool GetLineAntiAlias() const { return lineAntiAlias_; }
+
+    /// Return tessellation amount value.
+    float GetTessellationAmount() const { return tessellationAmount_; }
 
     /// Return render order.
     unsigned char GetRenderOrder() const { return renderOrder_; }
@@ -298,12 +324,22 @@ private:
     String vertexShaderDefines_;
     /// Pixel shader defines.
     String pixelShaderDefines_;
+    /// Geometry shader defines.
+    String geometryShaderDefines_;
+    /// Hull shader defines.
+    String hullShaderDefines_;
+    /// Domain shader defines.
+    String domainShaderDefines_;
+    /// Compute shader defines.
+    String computeShaderDefines_;
     /// Normal culling mode.
     CullMode cullMode_;
     /// Culling mode for shadow rendering.
     CullMode shadowCullMode_;
     /// Polygon fill mode.
     FillMode fillMode_;
+    /// VS-GS Primitives input mode
+    PrimitiveType primitivesInputType_;
     /// Depth bias parameters.
     BiasParameters depthBias_;
     /// Render order value.
@@ -324,6 +360,8 @@ private:
     bool subscribed_;
     /// Flag to suppress parameter hash and memory use recalculation when setting multiple shader parameters (loading or resetting the material.)
     bool batchedParameterUpdate_;
+    /// Tessellation amount material (from user)
+    float tessellationAmount_;
     /// XML file used while loading.
     SharedPtr<XMLFile> loadXMLFile_;
     /// JSON file used while loading.

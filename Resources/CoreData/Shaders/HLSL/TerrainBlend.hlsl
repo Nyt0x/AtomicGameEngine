@@ -5,6 +5,8 @@
 #include "Lighting.hlsl"
 #include "Fog.hlsl"
 
+#line 8
+
 #ifndef D3D11
 
 // D3D9 uniforms and samplers
@@ -38,55 +40,77 @@ SamplerState sDetailMap3 : register(s3);
 
 #endif
 
-void VS(float4 iPos : POSITION,
-    float3 iNormal : NORMAL,
-    float2 iTexCoord : TEXCOORD0,
-    #ifdef SKINNED
-        float4 iBlendWeights : BLENDWEIGHT,
-        int4 iBlendIndices : BLENDINDICES,
-    #endif
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-    #if defined(BILLBOARD) || defined(DIRBILLBOARD)
-        float2 iSize : TEXCOORD1,
-    #endif
-    #if defined(TRAILFACECAM) || defined(TRAILBONE)
-        float4 iTangent : TANGENT,
-    #endif
-    out float2 oTexCoord : TEXCOORD0,
-    out float3 oNormal : TEXCOORD1,
-    out float4 oWorldPos : TEXCOORD2,
-    out float2 oDetailTexCoord : TEXCOORD3,
-    #ifdef PERPIXEL
-        #ifdef SHADOW
-            out float4 oShadowPos[NUMCASCADES] : TEXCOORD4,
-        #endif
-        #ifdef SPOTLIGHT
-            out float4 oSpotPos : TEXCOORD5,
-        #endif
-        #ifdef POINTLIGHT
-            out float3 oCubeMaskVec : TEXCOORD5,
-        #endif
-    #else
-        out float3 oVertexLight : TEXCOORD4,
-        out float4 oScreenPos : TEXCOORD5,
-    #endif
-    #if defined(D3D11) && defined(CLIPPLANE)
-        out float oClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+    float3 Normal : NORMAL;
+    float2 TexCoord : TEXCOORD0;
+#ifdef SKINNED
+    float4 BlendWeights : BLENDWEIGHT;
+    int4 BlendIndices : BLENDINDICES;
+#endif
+#ifdef INSTANCED
+    float4x3 ModelInstance : TEXCOORD4;
+#endif
+#if defined(BILLBOARD) || defined(DIRBILLBOARD)
+    float2 Size : TEXCOORD1;
+#endif
+#if defined(TRAILFACECAM) || defined(TRAILBONE)
+    float4 Tangent : TANGENT;
+#endif
+};
+
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+    float4 WorldPos : TEXCOORD2;
+    float2 DetailTexCoord : TEXCOORD3;
+#ifdef PERPIXEL
+    #ifdef SHADOW
+        float4 ShadowPos[NUMCASCADES] : TEXCOORD4;
+    #endif
+    #ifdef SPOTLIGHT
+        float4 SpotPos : TEXCOORD5;
+    #endif
+    #ifdef POINTLIGHT
+        float3 CubeMaskVec : TEXCOORD5;
+    #endif
+#else
+    float3 VertexLight : TEXCOORD4;
+    float4 ScreenPos : TEXCOORD5;
+#endif
+#if defined(D3D11) && defined(CLIPPLANE)
+    float Clip : SV_CLIPDISTANCE0;
+#endif
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+#ifdef PREPASS
+    float4 Depth : OUTCOLOR1;
+#endif
+#ifdef DEFERRED
+    float4 Albedo : OUTCOLOR1;
+    float4 Normal : OUTCOLOR2;
+    float4 Depth : OUTCOLOR3;
+#endif
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oNormal = GetWorldNormal(modelMatrix);
-    oWorldPos = float4(worldPos, GetDepth(oPos));
-    oTexCoord = GetTexCoord(iTexCoord);
-    oDetailTexCoord = cDetailTiling * oTexCoord;
+    Out.Pos = GetClipPos(worldPos);
+    Out.Normal = GetWorldNormal(modelMatrix);
+    Out.WorldPos = float4(worldPos, GetDepth(Out.Pos));
+    Out.TexCoord = GetTexCoord(In.TexCoord);
+    Out.DetailTexCoord = cDetailTiling * Out.TexCoord;
 
     #if defined(D3D11) && defined(CLIPPLANE)
-        oClip = dot(oPos, cClipPlane);
+        Out.Clip = dot(Out.Pos, cClipPlane);
     #endif
 
     #ifdef PERPIXEL
@@ -95,82 +119,53 @@ void VS(float4 iPos : POSITION,
 
         #ifdef SHADOW
             // Shadow projection: transform from world space to shadow space
-            GetShadowPos(projWorldPos, oNormal, oShadowPos);
+            GetShadowPos(projWorldPos, Out.Normal, Out.ShadowPos);
         #endif
 
         #ifdef SPOTLIGHT
             // Spotlight projection: transform from world space to projector texture coordinates
-            oSpotPos = mul(projWorldPos, cLightMatrices[0]);
+            Out.SpotPos = mul(projWorldPos, cLightMatrices[0]);
         #endif
 
         #ifdef POINTLIGHT
-            oCubeMaskVec = mul(worldPos - cLightPos.xyz, (float3x3)cLightMatrices[0]);
+            Out.CubeMaskVec = mul(worldPos - cLightPos.xyz, (float3x3)cLightMatrices[0]);
         #endif
     #else
         // Ambient & per-vertex lighting
-        oVertexLight = GetAmbient(GetZonePos(worldPos));
+        Out.VertexLight = GetAmbient(GetZonePos(worldPos));
 
         #ifdef NUMVERTEXLIGHTS
             for (int i = 0; i < NUMVERTEXLIGHTS; ++i)
-                oVertexLight += GetVertexLight(i, worldPos, oNormal) * cVertexLights[i * 3].rgb;
+                Out.VertexLight += GetVertexLight(i, worldPos, Out.Normal) * cVertexLights[i * 3].rgb;
         #endif
         
-        oScreenPos = GetScreenPos(oPos);
+        Out.ScreenPos = GetScreenPos(Out.Pos);
     #endif
 }
 
-void PS(float2 iTexCoord : TEXCOORD0,
-    float3 iNormal : TEXCOORD1,
-    float4 iWorldPos : TEXCOORD2,
-    float2 iDetailTexCoord : TEXCOORD3,
-    #ifdef PERPIXEL
-        #ifdef SHADOW
-            float4 iShadowPos[NUMCASCADES] : TEXCOORD4,
-        #endif
-        #ifdef SPOTLIGHT
-            float4 iSpotPos : TEXCOORD5,
-        #endif
-        #ifdef POINTLIGHT
-            float3 iCubeMaskVec : TEXCOORD5,
-        #endif
-    #else
-        float3 iVertexLight : TEXCOORD4,
-        float4 iScreenPos : TEXCOORD5,
-    #endif
-    #if defined(D3D11) && defined(CLIPPLANE)
-        float iClip : SV_CLIPDISTANCE0,
-    #endif
-    #ifdef PREPASS
-        out float4 oDepth : OUTCOLOR1,
-    #endif
-    #ifdef DEFERRED
-        out float4 oAlbedo : OUTCOLOR1,
-        out float4 oNormal : OUTCOLOR2,
-        out float4 oDepth : OUTCOLOR3,
-    #endif
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     // Get material diffuse albedo
-    float3 weights = Sample2D(WeightMap0, iTexCoord).rgb;
+    float3 weights = Sample2D(WeightMap0, In.TexCoord).rgb;
     float sumWeights = weights.r + weights.g + weights.b;
     weights /= sumWeights;
     float4 diffColor = cMatDiffColor * (
-        weights.r * Sample2D(DetailMap1, iDetailTexCoord) +
-        weights.g * Sample2D(DetailMap2, iDetailTexCoord) +
-        weights.b * Sample2D(DetailMap3, iDetailTexCoord)
+        weights.r * Sample2D(DetailMap1, In.DetailTexCoord) +
+        weights.g * Sample2D(DetailMap2, In.DetailTexCoord) +
+        weights.b * Sample2D(DetailMap3, In.DetailTexCoord)
     );
 
     // Get material specular albedo
     float3 specColor = cMatSpecColor.rgb;
 
     // Get normal
-    float3 normal = normalize(iNormal);
+    float3 normal = normalize(In.Normal);
 
     // Get fog factor
     #ifdef HEIGHTFOG
-        float fogFactor = GetHeightFogFactor(iWorldPos.w, iWorldPos.y);
+        float fogFactor = GetHeightFogFactor(In.WorldPos.w, In.WorldPos.y);
     #else
-        float fogFactor = GetFogFactor(iWorldPos.w);
+        float fogFactor = GetFogFactor(In.WorldPos.w);
     #endif
 
     #if defined(PERPIXEL)
@@ -179,22 +174,22 @@ void PS(float2 iTexCoord : TEXCOORD0,
         float3 lightColor;
         float3 finalColor;
         
-        float diff = GetDiffuse(normal, iWorldPos.xyz, lightDir);
+        float diff = GetDiffuse(normal, In.WorldPos.xyz, lightDir);
 
         #ifdef SHADOW
-            diff *= GetShadow(iShadowPos, iWorldPos.w);
+            diff *= GetShadow(In.ShadowPos, In.WorldPos.w);
         #endif
     
         #if defined(SPOTLIGHT)
-            lightColor = iSpotPos.w > 0.0 ? Sample2DProj(LightSpotMap, iSpotPos).rgb * cLightColor.rgb : 0.0;
+            lightColor = In.SpotPos.w > 0.0 ? Sample2DProj(LightSpotMap, In.SpotPos).rgb * cLightColor.rgb : 0.0;
         #elif defined(CUBEMASK)
-            lightColor = SampleCube(LightCubeMap, iCubeMaskVec).rgb * cLightColor.rgb;
+            lightColor = SampleCube(LightCubeMap, In.CubeMaskVec).rgb * cLightColor.rgb;
         #else
             lightColor = cLightColor.rgb;
         #endif
     
         #ifdef SPECULAR
-            float spec = GetSpecular(normal, cCameraPosPS - iWorldPos.xyz, lightDir, cMatSpecColor.a);
+            float spec = GetSpecular(normal, cCameraPosPS - In.WorldPos.xyz, lightDir, cMatSpecColor.a);
             finalColor = diff * lightColor * (diffColor.rgb + spec * specColor * cLightColor.a);
         #else
             finalColor = diff * lightColor * diffColor.rgb;
@@ -203,40 +198,40 @@ void PS(float2 iTexCoord : TEXCOORD0,
         #ifdef AMBIENT
             finalColor += cAmbientColor.rgb * diffColor.rgb;
             finalColor += cMatEmissiveColor;
-            oColor = float4(GetFog(finalColor, fogFactor), diffColor.a);
+            Out.Color = float4(GetFog(finalColor, fogFactor), diffColor.a);
         #else
-            oColor = float4(GetLitFog(finalColor, fogFactor), diffColor.a);
+            Out.Color = float4(GetLitFog(finalColor, fogFactor), diffColor.a);
         #endif
     #elif defined(PREPASS)
         // Fill light pre-pass G-Buffer
         float specPower = cMatSpecColor.a / 255.0;
 
-        oColor = float4(normal * 0.5 + 0.5, specPower);
-        oDepth = iWorldPos.w;
+        Out.Color = float4(normal * 0.5 + 0.5, specPower);
+        Out.Depth = In.WorldPos.w;
     #elif defined(DEFERRED)
         // Fill deferred G-buffer
         float specIntensity = specColor.g;
         float specPower = cMatSpecColor.a / 255.0;
 
-        float3 finalColor = iVertexLight * diffColor.rgb;
+        float3 finalColor = In.VertexLight * diffColor.rgb;
 
-        oColor = float4(GetFog(finalColor, fogFactor), 1.0);
-        oAlbedo = fogFactor * float4(diffColor.rgb, specIntensity);
-        oNormal = float4(normal * 0.5 + 0.5, specPower);
-        oDepth = iWorldPos.w;
+        Out.Color = float4(GetFog(finalColor, fogFactor), 1.0);
+        Out.Albedo = fogFactor * float4(diffColor.rgb, specIntensity);
+        Out.Normal = float4(normal * 0.5 + 0.5, specPower);
+        Out.Depth = In.WorldPos.w;
     #else
         // Ambient & per-vertex lighting
-        float3 finalColor = iVertexLight * diffColor.rgb;
+        float3 finalColor = In.VertexLight * diffColor.rgb;
 
         #ifdef MATERIAL
             // Add light pre-pass accumulation result
             // Lights are accumulated at half intensity. Bring back to full intensity now
-            float4 lightInput = 2.0 * Sample2DProj(LightBuffer, iScreenPos);
+            float4 lightInput = 2.0 * Sample2DProj(LightBuffer, In.ScreenPos);
             float3 lightSpecColor = lightInput.a * (lightInput.rgb / GetIntensity(lightInput.rgb));
 
             finalColor += lightInput.rgb * diffColor.rgb + lightSpecColor * specColor;
         #endif
 
-        oColor = float4(GetFog(finalColor, fogFactor), diffColor.a);
+        Out.Color = float4(GetFog(finalColor, fogFactor), diffColor.a);
     #endif
 }

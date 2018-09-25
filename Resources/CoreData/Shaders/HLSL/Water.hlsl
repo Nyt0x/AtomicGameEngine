@@ -33,64 +33,69 @@ cbuffer CustomPS : register(b6)
 
 #endif
 
-void VS(float4 iPos : POSITION,
-    float3 iNormal: NORMAL,
-    float2 iTexCoord : TEXCOORD0,
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-    out float4 oScreenPos : TEXCOORD0,
-    out float2 oReflectUV : TEXCOORD1,
-    out float2 oWaterUV : TEXCOORD2,
-    out float3 oNormal : TEXCOORD3,
-    out float4 oEyeVec : TEXCOORD4,
-    #if defined(D3D11) && defined(CLIPPLANE)
-        out float oClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
-    float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    float4 Pos : POSITION;
+    float3 Normal: NORMAL;
+    float2 TexCoord : TEXCOORD0;
+    #ifdef INSTANCED
+        float4x3 ModelInstance : TEXCOORD4;
+    #endif
+};
 
-    oScreenPos = GetScreenPos(oPos);
+struct PixelIn
+{
+    float4 ScreenPos : TEXCOORD0;
+    float2 ReflectUV : TEXCOORD1;
+    float2 WaterUV : TEXCOORD2;
+    float3 Normal : TEXCOORD3;
+    float4 EyeVec : TEXCOORD4;
+    #if defined(D3D11) && defined(CLIPPLANE)
+        float Clip : SV_CLIPDISTANCE0;
+    #endif
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
+    float3 worldPos = GetWorldPos(modelMatrix);
+    Out.Pos = GetClipPos(worldPos);
+
+    Out.ScreenPos = GetScreenPos(Out.Pos);
     // GetQuadTexCoord() returns a float2 that is OK for quad rendering; multiply it with output W
     // coordinate to make it work with arbitrary meshes such as the water plane (perform divide in pixel shader)
-    oReflectUV = GetQuadTexCoord(oPos) * oPos.w;
-    oWaterUV = iTexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed;
-    oNormal = GetWorldNormal(modelMatrix);
-    oEyeVec = float4(cCameraPos - worldPos, GetDepth(oPos));
+    Out.ReflectUV = GetQuadTexCoord(Out.Pos) * Out.Pos.w;
+    Out.WaterUV = In.TexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed;
+    Out.Normal = GetWorldNormal(modelMatrix);
+    Out.EyeVec = float4(cCameraPos - worldPos, GetDepth(Out.Pos));
 
     #if defined(D3D11) && defined(CLIPPLANE)
-        oClip = dot(oPos, cClipPlane);
+        Out.Clip = dot(Out.Pos, cClipPlane);
     #endif
 }
 
-void PS(
-    float4 iScreenPos : TEXCOORD0,
-    float2 iReflectUV : TEXCOORD1,
-    float2 iWaterUV : TEXCOORD2,
-    float3 iNormal : TEXCOORD3,
-    float4 iEyeVec : TEXCOORD4,
-    #if defined(D3D11) && defined(CLIPPLANE)
-        float iClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
-    float2 refractUV = iScreenPos.xy / iScreenPos.w;
-    float2 reflectUV = iReflectUV.xy / iScreenPos.w;
+    float2 refractUV = In.ScreenPos.xy / In.ScreenPos.w;
+    float2 reflectUV = In.ReflectUV.xy / In.ScreenPos.w;
 
-    float2 noise = (Sample2D(NormalMap, iWaterUV).rg - 0.5) * cNoiseStrength;
+    float2 noise = (Sample2D(NormalMap, In.WaterUV).rg - 0.5) * cNoiseStrength;
     refractUV += noise;
     // Do not shift reflect UV coordinate upward, because it will reveal the clipping of geometry below water
     if (noise.y < 0.0)
         noise.y = 0.0;
     reflectUV += noise;
 
-    float fresnel = pow(1.0 - saturate(dot(normalize(iEyeVec.xyz), iNormal)), cFresnelPower);
+    float fresnel = pow(1.0 - saturate(dot(normalize(In.EyeVec.xyz), In.Normal)), cFresnelPower);
     float3 refractColor = Sample2D(EnvMap, refractUV).rgb * cWaterTint;
     float3 reflectColor = Sample2D(DiffMap, reflectUV).rgb;
     float3 finalColor = lerp(refractColor, reflectColor, fresnel);
 
-    oColor = float4(GetFog(finalColor, GetFogFactor(iEyeVec.w)), 1.0);
+    Out.Color = float4(GetFog(finalColor, GetFogFactor(In.EyeVec.w)), 1.0);
 }

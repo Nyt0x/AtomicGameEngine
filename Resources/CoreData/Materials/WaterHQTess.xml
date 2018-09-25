@@ -1,0 +1,21 @@
+<!-- Based on Materials/Water.xml -->
+<material>
+    <technique name="Techniques/WaterHQTess.xml" />
+    <texture unit="0" name="Textures/Skybox.xml" />
+    <texture unit="2" name="Textures/WaterNoise.dds" />
+    <parameter name="NoiseSpeed" value="0.05 0.05" />
+    <parameter name="NoiseTiling" value="50" />
+    <parameter name="RefractNoiseStrength" value="0.1" />
+    <parameter name="ReflectNoiseStrength" value="0.5" />
+    <parameter name="FresnelPower" value="8" />
+    <parameter name="FresnelBias" value="-0.0" />
+    <parameter name="FoamColor" value="1.0 1.0 1.0" />
+    <parameter name="FoamTreshold" value="8.0" />
+    <parameter name="ShallowColor" value="0.9 0.95 1.0" />
+    <parameter name="DeepColor" value="0.2 0.3 0.4" />
+    <parameter name="DepthScale" value="0.2" />
+    <parameter name="DefaultPlaneElevationWorld" value="0.0" />
+    <fill value="solid" />
+    <primitivesinput value="control point list 3" />
+    <tessellationAmount value="48.0" />
+</material>

@@ -161,9 +161,15 @@ void CalculateSpotMatrix(Matrix4& dest, Light* light)
 
 void Batch::CalculateSortKey()
 {
+    // Not sure about that! [5/3/2017 adasilva]
     unsigned shaderID = (unsigned)(
-        ((*((unsigned*)&vertexShader_) / sizeof(ShaderVariation)) + (*((unsigned*)&pixelShader_) / sizeof(ShaderVariation))) &
-        0x7fff);
+        ((*((unsigned*)&vertexShader_) / sizeof(ShaderVariation)) 
+        + (*((unsigned*)&pixelShader_) / sizeof(ShaderVariation))
+        + (*((unsigned*)&geometryShader_) / sizeof(ShaderVariation))
+        + (*((unsigned*)&hullShader_) / sizeof(ShaderVariation))
+        + (*((unsigned*)&domainShader_) / sizeof(ShaderVariation))
+        + (*((unsigned*)&computeShader_) / sizeof(ShaderVariation)))
+        & 0x7fff);
     if (!isBase_)
         shaderID |= 0x8000;
 
@@ -177,6 +183,7 @@ void Batch::CalculateSortKey()
 
 void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool allowDepthWrite) const
 {
+    // will need proper test [5/3/2017 adasilva]
     if (!vertexShader_ || !pixelShader_)
         return;
 
@@ -187,10 +194,10 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
     Texture2D* shadowMap = lightQueue_ ? lightQueue_->shadowMap_ : 0;
 
     // Set shaders first. The available shader parameters and their register/uniform positions depend on the currently set shaders
-    graphics->SetShaders(vertexShader_, pixelShader_);
+    graphics->SetShaders(vertexShader_, pixelShader_, geometryShader_, hullShader_, domainShader_, computeShader_);
 
     // Set pass / material-specific renderstates
-    if (pass_ && material_)
+    if (pass_ && material_ && geometry_)
     {
         BlendMode blend = pass_->GetBlendMode();
         // Turn additive blending into subtract if the light is negative
@@ -219,6 +226,7 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
 
         // Use the "least filled" fill mode combined from camera & material
         graphics->SetFillMode((FillMode)(Max(camera->GetFillMode(), material_->GetFillMode())));
+        //graphics->SetPrimitiveType(geometry_->GetPrimitiveType()/*material_->GetPrimitivesInputMode()*/);
         graphics->SetDepthTest(pass_->GetDepthTestMode());
         graphics->SetDepthWrite(pass_->GetDepthWrite() && allowDepthWrite);
     }
@@ -285,6 +293,8 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
         graphics->SetShaderParameter(PSP_FOGCOLOR, overrideFogColorToBlack ? Color::BLACK : zone_->GetFogColor());
         graphics->SetShaderParameter(PSP_ZONEMIN, zone_->GetBoundingBox().min_);
         graphics->SetShaderParameter(PSP_ZONEMAX, zone_->GetBoundingBox().max_);
+        // Is this still usefull? [5/24/2017 adasilva]
+        graphics->SetShaderParameter(PSP_ZONEPOSITIONWS, zone_->GetWorldBoundingBox().Center());
 
         float farClip = camera->GetFarClip();
         float fogStart = Min(zone_->GetFogStart(), farClip);
@@ -585,8 +595,10 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
 
     // Set zone texture if necessary
 #ifndef GL_ES_VERSION_2_0
-    if (zone_ && graphics->HasTextureUnit(TU_ZONE))
-        graphics->SetTexture(TU_ZONE, zone_->GetZoneTexture());
+	if (zone_ && graphics->HasTextureUnit(TU_ZONE))
+	{
+		graphics->SetTexture(TU_ZONE, zone_->GetZoneTexture());
+	}
 #else
     // On OpenGL ES set the zone texture to the environment unit instead
     if (zone_ && zone_->GetZoneTexture() && graphics->HasTextureUnit(TU_ENVIRONMENT))
@@ -630,6 +642,13 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
                 shapeTexture = renderer->GetDefaultLightSpot();
             graphics->SetTexture(TU_LIGHTSHAPE, shapeTexture);
         }
+    }
+
+    // put proper defines here to segregate the tessellation code from API that does not support it [5/23/2017 adasilva]
+
+    if (hullShader_ && domainShader_)
+    {
+        graphics->SetShaderParameter(HSP_TESSELATIONAMOUNT, material_->GetTessellationAmount());
     }
 }
 
@@ -685,8 +704,8 @@ void BatchGroup::Draw(View* view, Camera* camera, bool allowDepthWrite) const
             {
                 if (graphics->NeedParameterUpdate(SP_OBJECT, instances_[i].worldTransform_))
                     graphics->SetShaderParameter(VSP_MODEL, *instances_[i].worldTransform_);
-
-                graphics->Draw(geometry_->GetPrimitiveType(), geometry_->GetIndexStart(), geometry_->GetIndexCount(),
+                
+                graphics->Draw(/*geometry_->GetPrimitiveType()*/material_->GetPrimitivesInputMode(), geometry_->GetIndexStart(), geometry_->GetIndexCount(),
                     geometry_->GetVertexStart(), geometry_->GetVertexCount());
             }
         }
@@ -702,7 +721,8 @@ void BatchGroup::Draw(View* view, Camera* camera, bool allowDepthWrite) const
 
             graphics->SetIndexBuffer(geometry_->GetIndexBuffer());
             graphics->SetVertexBuffers(vertexBuffers, startIndex_);
-            graphics->DrawInstanced(geometry_->GetPrimitiveType(), geometry_->GetIndexStart(), geometry_->GetIndexCount(),
+
+            graphics->DrawInstanced(/*geometry_->GetPrimitiveType()*/material_->GetPrimitivesInputMode(), geometry_->GetIndexStart(), geometry_->GetIndexCount(),
                 geometry_->GetVertexStart(), geometry_->GetVertexCount(), instances_.Size());
 
             // Remove the instancing buffer & element mask now

@@ -177,6 +177,8 @@ void Geometry::SetRawIndexData(SharedArrayPtr<unsigned char> data, unsigned inde
 
 void Geometry::Draw(Graphics* graphics)
 {
+    //PrimitiveType gsPrimitiveType = graphics->GetEffectivePrimitiveTypeOverGSInput(primitiveType_);
+
     if (indexBuffer_ && indexCount_ > 0)
     {
         graphics->SetIndexBuffer(indexBuffer_);

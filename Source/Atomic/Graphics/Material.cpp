@@ -94,6 +94,22 @@ static const char* fillModeNames[] =
     0
 };
 
+// Must map with enum PrimitiveType
+static const char* primitivesInputTypeNames[] =
+{
+    //"undefined",
+    "triangles list",
+    "lines list",
+    "points list",
+    "triangles strip",
+    "lines strip",
+    "triangle fan",
+    //"control point list 1",
+    //"control point list 2",
+    "control point list 3",
+    0
+};
+
 TextureUnit ParseTextureUnitName(String name)
 {
     name = name.ToLower().Trimmed();
@@ -214,7 +230,9 @@ Material::Material(Context* context) :
     occlusion_(true),
     specular_(false),
     subscribed_(false),
-    batchedParameterUpdate_(false)
+    batchedParameterUpdate_(false),
+    primitivesInputType_(TRIANGLE_LIST),
+    tessellationAmount_(1.0f)
 {
     ResetToDefaults();
 }
@@ -435,8 +453,12 @@ bool Material::Load(const XMLElement& source)
     XMLElement shaderElem = source.GetChild("shader");
     if (shaderElem)
     {
-        vertexShaderDefines_ = shaderElem.GetAttribute("vsdefines");
-        pixelShaderDefines_ = shaderElem.GetAttribute("psdefines");
+        vertexShaderDefines_ = shaderElem.GetAttribute(ShaderTypeDefineName[ShaderType::VS]);
+        pixelShaderDefines_ = shaderElem.GetAttribute(ShaderTypeDefineName[ShaderType::PS]);
+        geometryShaderDefines_ = shaderElem.GetAttribute(ShaderTypeDefineName[ShaderType::GS]);
+        hullShaderDefines_ = shaderElem.GetAttribute(ShaderTypeDefineName[ShaderType::HS]);
+        domainShaderDefines_ = shaderElem.GetAttribute(ShaderTypeDefineName[ShaderType::DS]);
+        computeShaderDefines_ = shaderElem.GetAttribute(ShaderTypeDefineName[ShaderType::CS]);
     }
 
     XMLElement techniqueElem = source.GetChild("technique");
@@ -546,6 +568,10 @@ bool Material::Load(const XMLElement& source)
     if (fillElem)
         SetFillMode((FillMode)GetStringListIndex(fillElem.GetAttribute("value").CString(), fillModeNames, FILL_SOLID));
 
+    XMLElement primitivesInputElem = source.GetChild("primitivesinput");
+    if (primitivesInputElem)
+        SetPrimitivesInputType((PrimitiveType)GetStringListIndex(primitivesInputElem.GetAttribute("value").CString(), primitivesInputTypeNames, TRIANGLE_LIST));
+
     XMLElement depthBiasElem = source.GetChild("depthbias");
     if (depthBiasElem)
         SetDepthBias(BiasParameters(depthBiasElem.GetFloat("constant"), depthBiasElem.GetFloat("slopescaled")));
@@ -565,6 +591,10 @@ bool Material::Load(const XMLElement& source)
     XMLElement occlusionElem = source.GetChild("occlusion");
     if (occlusionElem)
         SetOcclusion(occlusionElem.GetBool("enable"));
+
+    XMLElement tessellationAmount = source.GetChild("tessellationAmount");
+    if (tessellationAmount)
+        SetTessellationAmount(tessellationAmount.GetFloat("value"));
 
     RefreshShaderParameterHash();
     RefreshMemoryUse();
@@ -586,8 +616,12 @@ bool Material::Load(const JSONValue& source)
     const JSONValue& shaderVal = source.Get("shader");
     if (!shaderVal.IsNull())
     {
-        vertexShaderDefines_ = shaderVal.Get("vsdefines").GetString();
-        pixelShaderDefines_ = shaderVal.Get("psdefines").GetString();
+        vertexShaderDefines_ = shaderVal.Get(ShaderTypeDefineName[ShaderType::VS]).GetString();
+        pixelShaderDefines_ = shaderVal.Get(ShaderTypeDefineName[ShaderType::PS]).GetString();
+        geometryShaderDefines_ = shaderVal.Get(ShaderTypeDefineName[ShaderType::GS]).GetString();
+        hullShaderDefines_ = shaderVal.Get(ShaderTypeDefineName[ShaderType::HS]).GetString();
+        domainShaderDefines_ = shaderVal.Get(ShaderTypeDefineName[ShaderType::DS]).GetString();
+        computeShaderDefines_ = shaderVal.Get(ShaderTypeDefineName[ShaderType::CS]).GetString();
     }
 
     // Load techniques
@@ -707,6 +741,10 @@ bool Material::Load(const JSONValue& source)
     if (!fillVal.IsNull())
         SetFillMode((FillMode)GetStringListIndex(fillVal.GetString().CString(), fillModeNames, FILL_SOLID));
 
+    JSONValue primitivesInputElem = source.Get("primitivesinput");
+    if (!primitivesInputElem.IsNull())
+        SetPrimitivesInputType((PrimitiveType)GetStringListIndex(primitivesInputElem.GetString().CString(), primitivesInputTypeNames, TRIANGLE_LIST));
+
     JSONValue depthBiasVal = source.Get("depthbias");
     if (!depthBiasVal.IsNull())
         SetDepthBias(BiasParameters(depthBiasVal.Get("constant").GetFloat(), depthBiasVal.Get("slopescaled").GetFloat()));
@@ -726,6 +764,10 @@ bool Material::Load(const JSONValue& source)
     JSONValue occlusionVal = source.Get("occlusion");
     if (!occlusionVal.IsNull())
         SetOcclusion(occlusionVal.GetBool());
+
+    JSONValue tessellationAmount = source.Get("tessellationAmount");
+    if (!tessellationAmount.IsNull())
+        SetTessellationAmount(tessellationAmount.GetFloat());
 
     RefreshShaderParameterHash();
     RefreshMemoryUse();
@@ -766,13 +808,26 @@ bool Material::Save(XMLElement& dest) const
     }
 
     // Write shader compile defines
-    if (!vertexShaderDefines_.Empty() || !pixelShaderDefines_.Empty())
+    if (!vertexShaderDefines_.Empty()
+        || !pixelShaderDefines_.Empty()
+        || !geometryShaderDefines_.Empty()
+        || !hullShaderDefines_.Empty()
+        || !domainShaderDefines_.Empty()
+        || !computeShaderDefines_.Empty())
     {
         XMLElement shaderElem = dest.CreateChild("shader");
         if (!vertexShaderDefines_.Empty())
-            shaderElem.SetString("vsdefines", vertexShaderDefines_);
+            shaderElem.SetString(ShaderTypeDefineName[ShaderType::VS], vertexShaderDefines_);
         if (!pixelShaderDefines_.Empty())
-            shaderElem.SetString("psdefines", pixelShaderDefines_);
+            shaderElem.SetString(ShaderTypeDefineName[ShaderType::PS], pixelShaderDefines_);
+        if (!geometryShaderDefines_.Empty())
+            shaderElem.SetString(ShaderTypeDefineName[ShaderType::GS], geometryShaderDefines_);
+        if (!hullShaderDefines_.Empty())
+            shaderElem.SetString(ShaderTypeDefineName[ShaderType::HS], hullShaderDefines_);
+        if (!domainShaderDefines_.Empty())
+            shaderElem.SetString(ShaderTypeDefineName[ShaderType::DS], domainShaderDefines_);
+        if (!computeShaderDefines_.Empty())
+            shaderElem.SetString(ShaderTypeDefineName[ShaderType::CS], computeShaderDefines_);
     }
 
     // Write shader parameters
@@ -815,6 +870,10 @@ bool Material::Save(XMLElement& dest) const
     XMLElement fillElem = dest.CreateChild("fill");
     fillElem.SetString("value", fillModeNames[fillMode_]);
 
+    // Write primitive input mode
+    XMLElement primitivesInputModeElem = dest.CreateChild("primitivesinput");
+    primitivesInputModeElem.SetString("value", primitivesInputTypeNames[primitivesInputType_]);
+
     // Write depth bias
     XMLElement depthBiasElem = dest.CreateChild("depthbias");
     depthBiasElem.SetFloat("constant", depthBias_.constantBias_);
@@ -827,6 +886,10 @@ bool Material::Save(XMLElement& dest) const
     // Write line anti-alias
     XMLElement lineAntiAliasElem = dest.CreateChild("lineantialias");
     lineAntiAliasElem.SetBool("enable", lineAntiAlias_);
+	
+    // Write tessellation amount
+    XMLElement tessellationAmount = dest.CreateChild("tessellationAmount");
+    tessellationAmount.SetFloat("value", tessellationAmount_);
 
     // Write render order
     XMLElement renderOrderElem = dest.CreateChild("renderorder");
@@ -869,13 +932,26 @@ bool Material::Save(JSONValue& dest) const
     dest.Set("textures", texturesValue);
 
     // Write shader compile defines
-    if (!vertexShaderDefines_.Empty() || !pixelShaderDefines_.Empty())
+    if (!vertexShaderDefines_.Empty()
+        || !pixelShaderDefines_.Empty()
+        || !geometryShaderDefines_.Empty()
+        || !hullShaderDefines_.Empty()
+        || !domainShaderDefines_.Empty()
+        || !computeShaderDefines_.Empty())
     {
         JSONValue shaderVal;
         if (!vertexShaderDefines_.Empty())
-            shaderVal.Set("vsdefines", vertexShaderDefines_);
+            shaderVal.Set(ShaderTypeDefineName[ShaderType::VS], vertexShaderDefines_);
         if (!pixelShaderDefines_.Empty())
-            shaderVal.Set("psdefines", pixelShaderDefines_);
+            shaderVal.Set(ShaderTypeDefineName[ShaderType::PS], pixelShaderDefines_);
+        if (!geometryShaderDefines_.Empty())
+            shaderVal.Set(ShaderTypeDefineName[ShaderType::GS], geometryShaderDefines_);
+        if (!hullShaderDefines_.Empty())
+            shaderVal.Set(ShaderTypeDefineName[ShaderType::HS], hullShaderDefines_);
+        if (!domainShaderDefines_.Empty())
+            shaderVal.Set(ShaderTypeDefineName[ShaderType::DS], domainShaderDefines_);
+        if (!computeShaderDefines_.Empty())
+            shaderVal.Set(ShaderTypeDefineName[ShaderType::CS], computeShaderDefines_);
         dest.Set("shader", shaderVal);
     }
 
@@ -919,6 +995,9 @@ bool Material::Save(JSONValue& dest) const
     // Write fill mode
     dest.Set("fill", fillModeNames[fillMode_]);
 
+    // Write primitives input mode
+    dest.Set("primitivesinput", primitivesInputTypeNames[primitivesInputType_]);
+
     // Write depth bias
     JSONValue depthBiasValue;
     depthBiasValue.Set("constant", depthBias_.constantBias_);
@@ -930,6 +1009,9 @@ bool Material::Save(JSONValue& dest) const
 
     // Write line anti-alias
     dest.Set("lineantialias", lineAntiAlias_);
+
+    // Write tessellation amount
+    dest.Set("tessellationAmount", tessellationAmount_);
 
     // Write render order
     dest.Set("renderorder", (unsigned) renderOrder_);
@@ -972,6 +1054,42 @@ void Material::SetPixelShaderDefines(const String& defines)
     if (defines != pixelShaderDefines_)
     {
         pixelShaderDefines_ = defines;
+        ApplyShaderDefines();
+    }
+}
+
+void Material::SetGeometryShaderDefines(const String& defines)
+{
+    if (defines != geometryShaderDefines_)
+    {
+        geometryShaderDefines_ = defines;
+        ApplyShaderDefines();
+    }
+}
+
+void Material::SetHullShaderDefines(const String& defines)
+{
+    if (defines != hullShaderDefines_)
+    {
+        hullShaderDefines_ = defines;
+        ApplyShaderDefines();
+    }
+}
+
+void Material::SetDomainShaderDefines(const String& defines)
+{
+    if (defines != domainShaderDefines_)
+    {
+        domainShaderDefines_ = defines;
+        ApplyShaderDefines();
+    }
+}
+
+void Material::SetComputeShaderDefines(const String& defines)
+{
+    if (defines != computeShaderDefines_)
+    {
+        computeShaderDefines_ = defines;
         ApplyShaderDefines();
     }
 }
@@ -1112,6 +1230,11 @@ void Material::SetFillMode(FillMode mode)
     fillMode_ = mode;
 }
 
+void Material::SetPrimitivesInputType(PrimitiveType mode)
+{
+    primitivesInputType_ = mode;
+}
+
 void Material::SetDepthBias(const BiasParameters& parameters)
 {
     depthBias_ = parameters;
@@ -1121,6 +1244,11 @@ void Material::SetDepthBias(const BiasParameters& parameters)
 void Material::SetAlphaToCoverage(bool enable)
 {
     alphaToCoverage_ = enable;
+}
+
+void Material::SetTessellationAmount(float value)
+{
+    tessellationAmount_ = value;
 }
 
 void Material::SetLineAntiAlias(bool enable)
@@ -1177,17 +1305,23 @@ SharedPtr<Material> Material::Clone(const String& cloneName) const
     ret->techniques_ = techniques_;
     ret->vertexShaderDefines_ = vertexShaderDefines_;
     ret->pixelShaderDefines_ = pixelShaderDefines_;
+    ret->geometryShaderDefines_ = geometryShaderDefines_;
+    ret->hullShaderDefines_ = hullShaderDefines_;
+    ret->domainShaderDefines_ = domainShaderDefines_;
+    ret->computeShaderDefines_ = computeShaderDefines_;
     ret->shaderParameters_ = shaderParameters_;
     ret->shaderParameterHash_ = shaderParameterHash_;
     ret->textures_ = textures_;
     ret->depthBias_ = depthBias_;
     ret->alphaToCoverage_ = alphaToCoverage_;
-    ret->lineAntiAlias_ = lineAntiAlias_;
+	ret->lineAntiAlias_ = lineAntiAlias_;
+    ret->tessellationAmount_ = tessellationAmount_;
     ret->occlusion_ = occlusion_;
     ret->specular_ = specular_;
     ret->cullMode_ = cullMode_;
     ret->shadowCullMode_ = shadowCullMode_;
     ret->fillMode_ = fillMode_;
+    ret->primitivesInputType_ = primitivesInputType_;
     ret->renderOrder_ = renderOrder_;
     ret->RefreshMemoryUse();
 
@@ -1277,6 +1411,10 @@ void Material::ResetToDefaults()
 
     vertexShaderDefines_.Clear();
     pixelShaderDefines_.Clear();
+    geometryShaderDefines_.Clear();
+    hullShaderDefines_.Clear();
+    domainShaderDefines_.Clear();
+    computeShaderDefines_.Clear();
 
     SetNumTechniques(1);
     Renderer* renderer = GetSubsystem<Renderer>();
@@ -1300,6 +1438,7 @@ void Material::ResetToDefaults()
     cullMode_ = CULL_CCW;
     shadowCullMode_ = CULL_CCW;
     fillMode_ = FILL_SOLID;
+    primitivesInputType_ = TRIANGLE_LIST;
     depthBias_ = BiasParameters(0.0f, 0.0f);
     renderOrder_ = DEFAULT_RENDER_ORDER;
     occlusion_ = true;
@@ -1401,10 +1540,10 @@ void Material::ApplyShaderDefines(unsigned index)
     if (index >= techniques_.Size() || !techniques_[index].original_)
         return;
 
-    if (vertexShaderDefines_.Empty() && pixelShaderDefines_.Empty())
+    if (vertexShaderDefines_.Empty() && pixelShaderDefines_.Empty() && geometryShaderDefines_.Empty() && hullShaderDefines_.Empty() && domainShaderDefines_.Empty() && computeShaderDefines_.Empty())
         techniques_[index].technique_ = techniques_[index].original_;
     else
-        techniques_[index].technique_ = techniques_[index].original_->CloneWithDefines(vertexShaderDefines_, pixelShaderDefines_);
+        techniques_[index].technique_ = techniques_[index].original_->CloneWithDefines(vertexShaderDefines_, pixelShaderDefines_, geometryShaderDefines_, hullShaderDefines_, domainShaderDefines_, computeShaderDefines_);
 }
 
 // ATOMIC BEGIN

@@ -2,26 +2,38 @@
 #include "Samplers.hlsl"
 #include "Transform.hlsl"
 
-void VS(float4 iPos : POSITION,
-    float2 iTexCoord : TEXCOORD0,
-    float4 iColor : COLOR0,
-    out float4 oColor : COLOR0,
-    out float2 oTexCoord : TEXCOORD0,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
-    float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    float4 Pos : POSITION;
+    float2 TexCoord : TEXCOORD0;
+    float4 Color : COLOR0;
+};
 
-    oColor = iColor;
-    oTexCoord = iTexCoord;
+struct PixelIn
+{
+    float4 Color : COLOR0;
+    float2 TexCoord : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
+    float3 worldPos = GetWorldPos(modelMatrix);
+    Out.Pos = GetClipPos(worldPos);
+
+    Out.Color = In.Color;
+    Out.TexCoord = In.TexCoord;
 }
 
-void PS(float4 iColor : COLOR0,
-        float2 iTexCoord : TEXCOORD0,
-        out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
-    float4 diffColor = cMatDiffColor * iColor;
-    float4 diffInput = Sample2D(DiffMap, iTexCoord);
-    oColor = diffColor * diffInput;
+    float4 diffColor = cMatDiffColor * In.Color;
+    float4 diffInput = Sample2D(DiffMap, In.TexCoord);
+    Out.Color = diffColor * diffInput;
 }

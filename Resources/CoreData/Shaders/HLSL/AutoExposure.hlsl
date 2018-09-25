@@ -37,82 +37,94 @@ float GatherAvgLum(Texture2D tex, SamplerState texSampler, float2 texCoord, floa
     return lumAvg / 4.0;
 }
 
-void VS(float4 iPos : POSITION,
-    out float2 oTexCoord : TEXCOORD0,
-    out float2 oScreenPos : TEXCOORD1,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
-    float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    float4 Pos : POSITION;
+};
 
-    oTexCoord = GetQuadTexCoord(oPos);
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
+    float2 ScreenPos : TEXCOORD1;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
+    float3 worldPos = GetWorldPos(modelMatrix);
+    Out.Pos = GetClipPos(worldPos);
+
+    Out.TexCoord = GetQuadTexCoord(Out.Pos);
 
     #ifdef LUMINANCE64
-    oTexCoord = GetQuadTexCoord(oPos) + cHDR128Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cHDR128Offsets;
     #endif
 
     #ifdef LUMINANCE16
-    oTexCoord = GetQuadTexCoord(oPos) + cLum64Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cLum64Offsets;
     #endif
 
     #ifdef LUMINANCE4
-    oTexCoord = GetQuadTexCoord(oPos) + cLum16Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cLum16Offsets;
     #endif
 
     #ifdef LUMINANCE1
-    oTexCoord = GetQuadTexCoord(oPos) + cLum4Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cLum4Offsets;
     #endif
 
-    oScreenPos = GetScreenPosPreDiv(oPos);
+    Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
 }
 
-void PS(float2 iTexCoord : TEXCOORD0,
-    float2 iScreenPos : TEXCOORD1,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     #ifdef LUMINANCE64
     float logLumSum = 0.0;
-    logLumSum += log(dot(Sample2D(DiffMap, iTexCoord + float2(0.0, 0.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
-    logLumSum += log(dot(Sample2D(DiffMap, iTexCoord + float2(0.0, 2.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
-    logLumSum += log(dot(Sample2D(DiffMap, iTexCoord + float2(2.0, 2.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
-    logLumSum += log(dot(Sample2D(DiffMap, iTexCoord + float2(2.0, 0.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
-    oColor = logLumSum;
+    logLumSum += log(dot(Sample2D(DiffMap, In.TexCoord + float2(0.0, 0.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
+    logLumSum += log(dot(Sample2D(DiffMap, In.TexCoord + float2(0.0, 2.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
+    logLumSum += log(dot(Sample2D(DiffMap, In.TexCoord + float2(2.0, 2.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
+    logLumSum += log(dot(Sample2D(DiffMap, In.TexCoord + float2(2.0, 0.0) * cHDR128InvSize).rgb, LumWeights) + 1e-5);
+    Out.Color = logLumSum;
     #endif
 
     #ifdef LUMINANCE16
     #ifndef D3D11
-    oColor = GatherAvgLum(sDiffMap, iTexCoord, cLum64InvSize);
+    Out.Color = GatherAvgLum(sDiffMap, In.TexCoord, cLum64InvSize);
     #else
-    oColor = GatherAvgLum(tDiffMap, sDiffMap, iTexCoord, cLum64InvSize);
+    Out.Color = GatherAvgLum(tDiffMap, sDiffMap, In.TexCoord, cLum64InvSize);
     #endif
     #endif
 
     #ifdef LUMINANCE4
     #ifndef D3D11
-    oColor = GatherAvgLum(sDiffMap, iTexCoord, cLum16InvSize);
+    Out.Color = GatherAvgLum(sDiffMap, In.TexCoord, cLum16InvSize);
     #else
-    oColor = GatherAvgLum(tDiffMap, sDiffMap, iTexCoord, cLum16InvSize);
+    Out.Color = GatherAvgLum(tDiffMap, sDiffMap, In.TexCoord, cLum16InvSize);
     #endif
     #endif
 
     #ifdef LUMINANCE1
     #ifndef D3D11
-    oColor = exp(GatherAvgLum(sDiffMap, iTexCoord, cLum4InvSize) / 16.0);
+    Out.Color = exp(GatherAvgLum(sDiffMap, In.TexCoord, cLum4InvSize) / 16.0);
     #else
-    oColor = exp(GatherAvgLum(tDiffMap, sDiffMap, iTexCoord, cLum4InvSize) / 16.0);
+    Out.Color = exp(GatherAvgLum(tDiffMap, sDiffMap, In.TexCoord, cLum4InvSize) / 16.0);
     #endif
     #endif
 
     #ifdef ADAPTLUMINANCE
-    float adaptedLum = Sample2D(DiffMap, iTexCoord).r;
-    float lum = clamp(Sample2D(NormalMap, iTexCoord).r, cAutoExposureLumRange.x, cAutoExposureLumRange.y);
-    oColor = adaptedLum + (lum - adaptedLum) * (1.0 - exp(-cDeltaTimePS * cAutoExposureAdaptRate));
+    float adaptedLum = Sample2D(DiffMap, In.TexCoord).r;
+    float lum = clamp(Sample2D(NormalMap, In.TexCoord).r, cAutoExposureLumRange.x, cAutoExposureLumRange.y);
+    Out.Color = adaptedLum + (lum - adaptedLum) * (1.0 - exp(-cDeltaTimePS * cAutoExposureAdaptRate));
     #endif
 
     #ifdef EXPOSE
-    float3 color = Sample2D(DiffMap, iScreenPos).rgb;
-    float adaptedLum = Sample2D(NormalMap, iTexCoord).r;
-    oColor = float4(color * (cAutoExposureMiddleGrey / adaptedLum), 1.0);
+    float3 color = Sample2D(DiffMap, In.ScreenPos).rgb;
+    float adaptedLum = Sample2D(NormalMap, In.TexCoord).r;
+    Out.Color = float4(color * (cAutoExposureMiddleGrey / adaptedLum), 1.0);
     #endif
 }

@@ -28,18 +28,31 @@ cbuffer CustomPS : register(b6)
 
 #endif
 
-void VS(float4 iPos : POSITION,
-    out float2 oScreenPos : TEXCOORD0,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+};
+
+struct PixelIn
+{
+    float2 ScreenPos : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oScreenPos = GetScreenPosPreDiv(oPos);
+    Out.Pos = GetClipPos(worldPos);
+    Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
 }
 
-void PS(float2 iScreenPos : TEXCOORD0,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     float FXAA_SUBPIX_SHIFT = 1.0/4.0; // Not used
     float FXAA_SPAN_MAX = 8.0;
@@ -48,11 +61,11 @@ void PS(float2 iScreenPos : TEXCOORD0,
 
     float2 posOffset = cGBufferInvSize.xy * cFXAAParams.x;
 
-    float3 rgbNW = Sample2DLod0(DiffMap, iScreenPos + float2(-posOffset.x, -posOffset.y)).rgb;
-    float3 rgbNE = Sample2DLod0(DiffMap, iScreenPos + float2(posOffset.x, -posOffset.y)).rgb;
-    float3 rgbSW = Sample2DLod0(DiffMap, iScreenPos + float2(-posOffset.x, posOffset.y)).rgb;
-    float3 rgbSE = Sample2DLod0(DiffMap, iScreenPos + float2(posOffset.x, posOffset.y)).rgb;
-    float3 rgbM  = Sample2DLod0(DiffMap, iScreenPos).rgb;
+    float3 rgbNW = Sample2DLod0(DiffMap, In.ScreenPos + float2(-posOffset.x, -posOffset.y)).rgb;
+    float3 rgbNE = Sample2DLod0(DiffMap, In.ScreenPos + float2(posOffset.x, -posOffset.y)).rgb;
+    float3 rgbSW = Sample2DLod0(DiffMap, In.ScreenPos + float2(-posOffset.x, posOffset.y)).rgb;
+    float3 rgbSE = Sample2DLod0(DiffMap, In.ScreenPos + float2(posOffset.x, posOffset.y)).rgb;
+    float3 rgbM  = Sample2DLod0(DiffMap, In.ScreenPos).rgb;
 
     float3 luma = float3(0.299, 0.587, 0.114);
     float lumaNW = dot(rgbNW, luma);
@@ -81,11 +94,11 @@ void PS(float2 iScreenPos : TEXCOORD0,
         dir *= cFXAAParams.z;
     
         float3 rgbA = (1.0/2.0) * (
-            Sample2DLod0(DiffMap, iScreenPos + dir * (1.0/3.0 - 0.5)).xyz +
-            Sample2DLod0(DiffMap, iScreenPos + dir * (2.0/3.0 - 0.5)).xyz);
+            Sample2DLod0(DiffMap, In.ScreenPos + dir * (1.0/3.0 - 0.5)).xyz +
+            Sample2DLod0(DiffMap, In.ScreenPos + dir * (2.0/3.0 - 0.5)).xyz);
         float3 rgbB = rgbA * (1.0/2.0) + (1.0/4.0) * (
-            Sample2DLod0(DiffMap, iScreenPos + dir * (0.0/3.0 - 0.5)).xyz +
-            Sample2DLod0(DiffMap, iScreenPos + dir * (3.0/3.0 - 0.5)).xyz);
+            Sample2DLod0(DiffMap, In.ScreenPos + dir * (0.0/3.0 - 0.5)).xyz +
+            Sample2DLod0(DiffMap, In.ScreenPos + dir * (3.0/3.0 - 0.5)).xyz);
         float lumaB = dot(rgbB, luma);
         
         float3 rgbOut;
@@ -94,8 +107,8 @@ void PS(float2 iScreenPos : TEXCOORD0,
         else
             rgbOut = rgbB;
 
-        oColor = float4(rgbOut, 1.0);
+        Out.Color = float4(rgbOut, 1.0);
     }
     else
-        oColor = float4(rgbM, 1.0);
+        Out.Color = float4(rgbM, 1.0);
 }

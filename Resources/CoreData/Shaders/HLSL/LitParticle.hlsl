@@ -18,76 +18,90 @@ cbuffer CustomPS : register(b6)
 #endif
 #endif
 
-void VS(float4 iPos : POSITION,
-    #if !defined(BILLBOARD) && !defined(TRAILFACECAM)
-        float3 iNormal : NORMAL,
-    #endif
-    #ifndef NOUV
-        float2 iTexCoord : TEXCOORD0,
-    #endif
-    #ifdef VERTEXCOLOR
-        float4 iColor : COLOR0,
-    #endif
-    #ifdef SKINNED
-        float4 iBlendWeights : BLENDWEIGHT,
-        int4 iBlendIndices : BLENDINDICES,
-    #endif
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-    #if defined(BILLBOARD) || defined(DIRBILLBOARD)
-        float2 iSize : TEXCOORD1,
-    #endif
-    #if defined(TRAILFACECAM) || defined(TRAILBONE)
-        float4 iTangent : TANGENT,
-    #endif
-    out float2 oTexCoord : TEXCOORD0,
+struct VertexIn
+{
+float4 Pos : POSITION;
+#if !defined(BILLBOARD) && !defined(TRAILFACECAM)
+    float3 Normal : NORMAL;
+#endif
+#ifndef NOUV
+    float2 TexCoord : TEXCOORD0;
+#endif
+#ifdef VERTEXCOLOR
+    float4 Color : COLOR0;
+#endif
+#ifdef SKINNED
+    float4 BlendWeights : BLENDWEIGHT;
+    int4 BlendIndices : BLENDINDICES;
+#endif
+#ifdef INSTANCED
+    float4x3 ModelInstance : TEXCOORD4;
+#endif
+#if defined(BILLBOARD) || defined(DIRBILLBOARD)
+    float2 Size : TEXCOORD1;
+#endif
+#if defined(TRAILFACECAM) || defined(TRAILBONE)
+    float4 Tangent : TANGENT;
+#endif
+};
+
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
     #ifdef SOFTPARTICLES
-        out float4 oScreenPos : TEXCOORD1,
+    	float4 ScreenPos : TEXCOORD1;
     #endif
-    out float4 oWorldPos : TEXCOORD3,
-    #if PERPIXEL
-        #ifdef SHADOW
-            out float4 oShadowPos[NUMCASCADES] : TEXCOORD4,
-        #endif
-        #ifdef SPOTLIGHT
-            out float4 oSpotPos : TEXCOORD5,
-        #endif
-        #ifdef POINTLIGHT
-            out float3 oCubeMaskVec : TEXCOORD5,
-        #endif
-    #else
-        out float3 oVertexLight : TEXCOORD4,
+    float4 WorldPos : TEXCOORD3;
+#if PERPIXEL
+    #ifdef SHADOW
+        float4 ShadowPos[NUMCASCADES] : TEXCOORD4;
     #endif
-    #ifdef VERTEXCOLOR
-        out float4 oColor : COLOR0,
+    #ifdef SPOTLIGHT
+        float4 SpotPos : TEXCOORD5;
     #endif
-    #if defined(D3D11) && defined(CLIPPLANE)
-        out float oClip : SV_CLIPDISTANCE0,
+    #ifdef POINTLIGHT
+        float3 CubeMaskVec : TEXCOORD5;
     #endif
-    out float4 oPos : OUTPOSITION)
+#else
+    float3 VertexLight : TEXCOORD4;
+#endif
+#ifdef VERTEXCOLOR
+    float4 Color : COLOR0;
+#endif
+#if defined(D3D11) && defined(CLIPPLANE)
+    float Clip : SV_CLIPDISTANCE0;
+#endif
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
 {
     // Define a 0,0 UV coord if not expected from the vertex data
     #ifdef NOUV
-    float2 iTexCoord = float2(0.0, 0.0);
+    float2 In.TexCoord = float2(0.0, 0.0);
     #endif
     
-    float4x3 modelMatrix = iModelMatrix;
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oTexCoord = GetTexCoord(iTexCoord);
-    oWorldPos = float4(worldPos, GetDepth(oPos));
+    Out.Pos = GetClipPos(worldPos);
+    Out.TexCoord = GetTexCoord(In.TexCoord);
+    Out.WorldPos = float4(worldPos, GetDepth(Out.Pos));
 
     #if defined(D3D11) && defined(CLIPPLANE)
-        oClip = dot(oPos, cClipPlane);
+        Out.Clip = dot(Out.Pos, cClipPlane);
     #endif
 
     #ifdef SOFTPARTICLES
-        oScreenPos = GetScreenPos(oPos);
+        Out.ScreenPos = GetScreenPos(Out.Pos);
     #endif
 
     #ifdef VERTEXCOLOR
-        oColor = iColor;
+        Out.Color = In.Color;
     #endif
 
     #ifdef PERPIXEL
@@ -96,57 +110,33 @@ void VS(float4 iPos : POSITION,
 
         #ifdef SHADOW
             // Shadow projection: transform from world space to shadow space
-            GetShadowPos(projWorldPos, float3(0, 0, 0), oShadowPos);
+            GetShadowPos(projWorldPos, float3(0, 0, 0), Out.ShadowPos);
         #endif
 
         #ifdef SPOTLIGHT
             // Spotlight projection: transform from world space to projector texture coordinates
-            oSpotPos = mul(projWorldPos, cLightMatrices[0]);
+            Out.SpotPos = mul(projWorldPos, cLightMatrices[0]);
         #endif
 
         #ifdef POINTLIGHT
-            oCubeMaskVec = mul(worldPos - cLightPos.xyz, (float3x3)cLightMatrices[0]);
+            Out.CubeMaskVec = mul(worldPos - cLightPos.xyz, (float3x3)cLightMatrices[0]);
         #endif
     #else
         // Ambient & per-vertex lighting
-        oVertexLight = GetAmbient(GetZonePos(worldPos));
+        Out.VertexLight = GetAmbient(GetZonePos(worldPos));
 
         #ifdef NUMVERTEXLIGHTS
             for (int i = 0; i < NUMVERTEXLIGHTS; ++i)
-                oVertexLight += GetVertexLightVolumetric(i, worldPos) * cVertexLights[i * 3].rgb;
+                Out.VertexLight += GetVertexLightVolumetric(i, worldPos) * cVertexLights[i * 3].rgb;
         #endif
     #endif
 }
 
-void PS(float2 iTexCoord : TEXCOORD0,
-    #ifdef SOFTPARTICLES
-        float4 iScreenPos: TEXCOORD1,
-    #endif
-    float4 iWorldPos : TEXCOORD3,
-    #ifdef PERPIXEL
-        #ifdef SHADOW
-            float4 iShadowPos[NUMCASCADES] : TEXCOORD4,
-        #endif
-        #ifdef SPOTLIGHT
-            float4 iSpotPos : TEXCOORD5,
-        #endif
-        #ifdef POINTLIGHT
-            float3 iCubeMaskVec : TEXCOORD5,
-        #endif
-    #else
-        float3 iVertexLight : TEXCOORD4,
-    #endif
-    #ifdef VERTEXCOLOR
-        float4 iColor : COLOR0,
-    #endif
-    #if defined(D3D11) && defined(CLIPPLANE)
-        float iClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     // Get material diffuse albedo
     #ifdef DIFFMAP
-        float4 diffInput = Sample2D(DiffMap, iTexCoord);
+        float4 diffInput = Sample2D(DiffMap, In.TexCoord);
         #ifdef ALPHAMASK
             if (diffInput.a < 0.5)
                 discard;
@@ -157,14 +147,14 @@ void PS(float2 iTexCoord : TEXCOORD0,
     #endif
 
     #ifdef VERTEXCOLOR
-        diffColor *= iColor;
+        diffColor *= In.Color;
     #endif
 
     // Get fog factor
     #ifdef HEIGHTFOG
-        float fogFactor = GetHeightFogFactor(iWorldPos.w, iWorldPos.y);
+        float fogFactor = GetHeightFogFactor(In.WorldPos.w, In.WorldPos.y);
     #else
-        float fogFactor = GetFogFactor(iWorldPos.w);
+        float fogFactor = GetFogFactor(In.WorldPos.w);
     #endif
 
     // Soft particle fade
@@ -175,8 +165,8 @@ void PS(float2 iTexCoord : TEXCOORD0,
                 discard;
         #endif
 
-        float particleDepth = iWorldPos.w;
-        float depth = Sample2DProj(DepthBuffer, iScreenPos).r;
+        float particleDepth = In.WorldPos.w;
+        float depth = Sample2DProj(DepthBuffer, In.ScreenPos).r;
         #ifdef HWDEPTH
             depth = ReconstructDepth(depth);
         #endif
@@ -197,26 +187,26 @@ void PS(float2 iTexCoord : TEXCOORD0,
         float3 lightColor;
         float3 finalColor;
         
-        float diff = GetDiffuseVolumetric(iWorldPos.xyz);
+        float diff = GetDiffuseVolumetric(In.WorldPos.xyz);
 
         #ifdef SHADOW
-            diff *= GetShadow(iShadowPos, iWorldPos.w);
+            diff *= GetShadow(iShadowPos, In.WorldPos.w);
         #endif
 
         #if defined(SPOTLIGHT)
-            lightColor = iSpotPos.w > 0.0 ? Sample2DProj(LightSpotMap, iSpotPos).rgb * cLightColor.rgb : 0.0;
+            lightColor = In.SpotPos.w > 0.0 ? Sample2DProj(LightSpotMap, In.SpotPos).rgb * cLightColor.rgb : 0.0;
         #elif defined(CUBEMASK)
-            lightColor = texCUBE(sLightCubeMap, iCubeMaskVec).rgb * cLightColor.rgb;
+            lightColor = texCUBE(sLightCubeMap, In.CubeMaskVec).rgb * cLightColor.rgb;
         #else
             lightColor = cLightColor.rgb;
         #endif
 
         finalColor = diff * lightColor * diffColor.rgb;
-        oColor = float4(GetLitFog(finalColor, fogFactor), diffColor.a);
+        Out.Color = float4(GetLitFog(finalColor, fogFactor), diffColor.a);
     #else
         // Ambient & per-vertex lighting
-        float3 finalColor = iVertexLight * diffColor.rgb;
+        float3 finalColor = In.VertexLight * diffColor.rgb;
 
-        oColor = float4(GetFog(finalColor, fogFactor), diffColor.a);
+        Out.Color = float4(GetFog(finalColor, fogFactor), diffColor.a);
     #endif
 }

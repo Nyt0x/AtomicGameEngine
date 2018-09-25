@@ -2,87 +2,91 @@
 #include "Samplers.hlsl"
 #include "Transform.hlsl"
 
-void VS(float4 iPos : POSITION,
-    #ifdef DIFFMAP
-        float2 iTexCoord : TEXCOORD0,
-    #endif
-    #ifdef VERTEXCOLOR
-        float4 iColor : COLOR0,
-    #endif
-    #ifdef SKINNED
-        float4 iBlendWeights : BLENDWEIGHT,
-        int4 iBlendIndices : BLENDINDICES,
-    #endif
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-    #if defined(BILLBOARD) || defined(DIRBILLBOARD)
-        float2 iSize : TEXCOORD1,
-    #endif
-    #if defined(DIRBILLBOARD) || defined(TRAILBONE)
-        float3 iNormal : NORMAL,
-    #endif
-    #if defined(TRAILFACECAM) || defined(TRAILBONE)
-        float4 iTangent : TANGENT,
-    #endif
-    #ifdef DIFFMAP
-        out float2 oTexCoord : TEXCOORD0,
-    #endif
-    #ifdef VERTEXCOLOR
-        out float4 oColor : COLOR0,
-    #endif
-    #if defined(D3D11) && defined(CLIPPLANE)
-        out float oClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+#ifdef DIFFMAP
+    float2 TexCoord : TEXCOORD0;
+#endif
+#ifdef VERTEXCOLOR
+    float4 Color : COLOR0;
+#endif
+#ifdef SKINNED
+    float4 BlendWeights : BLENDWEIGHT;
+    int4 BlendIndices : BLENDINDICES;
+#endif
+#ifdef INSTANCED
+    float4x3 ModelInstance : TEXCOORD4;
+#endif
+#if defined(BILLBOARD) || defined(DIRBILLBOARD)
+    float2 Size : TEXCOORD1;
+#endif
+#if defined(DIRBILLBOARD) || defined(TRAILBONE)
+    float3 Normal : NORMAL;
+#endif
+#if defined(TRAILFACECAM) || defined(TRAILBONE)
+    float4 Tangent : TANGENT;
+#endif
+};
+
+struct PixelIn
+{
+#ifdef DIFFMAP
+    float2 TexCoord : TEXCOORD0;
+#endif
+#ifdef VERTEXCOLOR
+    float4 Color : COLOR0;
+#endif
+#if defined(D3D11) && defined(CLIPPLANE)
+    float Clip : SV_CLIPDISTANCE0;
+#endif
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    Out.Pos = GetClipPos(worldPos);
 
     #if defined(D3D11) && defined(CLIPPLANE)
-        oClip = dot(oPos, cClipPlane);
+        Out.Clip = dot(Out.Pos, cClipPlane);
     #endif
 
     #ifdef VERTEXCOLOR
-        oColor = iColor;
+        Out.Color = In.Color;
     #endif
     #ifdef DIFFMAP
-        oTexCoord = iTexCoord;
+        Out.TexCoord = In.TexCoord;
     #endif
 }
 
-void PS(
-    #if defined(DIFFMAP) || defined(ALPHAMAP)
-        float2 iTexCoord : TEXCOORD0,
-    #endif
-    #ifdef VERTEXCOLOR
-        float4 iColor : COLOR0,
-    #endif
-    #if defined(D3D11) && defined(CLIPPLANE)
-        float iClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     float4 diffColor = cMatDiffColor;
 
     #ifdef VERTEXCOLOR
-        diffColor *= iColor;
+        diffColor *= In.Color;
     #endif
 
     #if (!defined(DIFFMAP)) && (!defined(ALPHAMAP))
-        oColor = diffColor;
+        Out.Color = diffColor;
     #endif
     #ifdef DIFFMAP
-        float4 diffInput = Sample2D(DiffMap, iTexCoord);
+        float4 diffInput = Sample2D(DiffMap, In.TexCoord);
         #ifdef ALPHAMASK
             if (diffInput.a < 0.5)
                 discard;
         #endif
-        oColor = diffColor * diffInput;
+        Out.Color = diffColor * diffInput;
     #endif
     #ifdef ALPHAMAP
-        float alphaInput = Sample2D(DiffMap, iTexCoord).a;
-        oColor = float4(diffColor.rgb, diffColor.a * alphaInput);
+        float alphaInput = Sample2D(DiffMap, In.TexCoord).a;
+        Out.Color = float4(diffColor.rgb, diffColor.a * alphaInput);
     #endif
 }

@@ -21,4 +21,10 @@ float GetHeightFogFactor(float depth, float height)
     heightFogFactor = 1.0 - saturate(exp(-(heightFogFactor * heightFogFactor)));
     return min(heightFogFactor, fogFactor);
 }
+
+float GetSoftParticleAlpha(float depth, float ContrastPower)
+{
+    float Output = 0.5*pow(saturate(2*(( depth > 0.5) ? 1-depth : depth)),ContrastPower);
+    return ( depth > 0.5) ? 1-Output : Output;
+}
 #endif

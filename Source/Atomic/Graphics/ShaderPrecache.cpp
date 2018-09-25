@@ -49,8 +49,24 @@ ShaderPrecache::ShaderPrecache(Context* context, const String& fileName) :
         XMLElement shader = xmlFile_.GetRoot().GetChild("shader");
         while (shader)
         {
-            String oldCombination = shader.GetAttribute("vs") + " " + shader.GetAttribute("vsdefines") + " " +
-                                    shader.GetAttribute("ps") + " " + shader.GetAttribute("psdefines");
+            String oldCombination;
+
+            for (int i = 0; i < ShaderType::MAX_SHADER_TYPE; i++)
+            {
+                String shaderName = shader.GetAttribute(ShaderTypeName[i]);
+                String shaderDefineName = shader.GetAttribute(ShaderTypeDefineName[i]);
+                
+                if (!shaderName.Empty() && !shaderDefineName.Empty())
+                {
+                    oldCombination += shaderName + " " + shaderDefineName;
+
+                    if (i != ShaderType::MAX_SHADER_TYPE - 1)
+                    {
+                        oldCombination += " ";
+                    }
+                }  
+            }
+
             usedCombinations_.Insert(oldCombination);
 
             shader = shader.GetNext("shader");
@@ -75,33 +91,197 @@ ShaderPrecache::~ShaderPrecache()
     xmlFile_.Save(dest);
 }
 
-void ShaderPrecache::StoreShaders(ShaderVariation* vs, ShaderVariation* ps)
+void ShaderPrecache::StoreShaders(ShaderVariation* vs
+    , ShaderVariation* ps
+    , ShaderVariation* gs /* = nullptr*/
+    , ShaderVariation* hs /* = nullptr*/
+    , ShaderVariation* ds /* = nullptr*/
+    , ShaderVariation* cs /* = nullptr*/
+    )
 {
-    if (!vs || !ps)
-        return;
+    // We are storing shader variation so we need to store a valid set
+
+    // vs needs to always exist
+    // gs is optional but require vs and ps
+    // ds //hs are optional but set is required to have both and vs/ps
+    // cs exist on its own
 
     // Check for duplicate using pointers first (fast)
-    Pair<ShaderVariation*, ShaderVariation*> shaderPair = MakePair(vs, ps);
-    if (usedPtrCombinations_.Contains(shaderPair))
+
+    SharedArrayPtr<ShaderVariation*> shaderSet(new ShaderVariation*[MAX_SHADER_PARAMETER_GROUPS]);
+
+    shaderSet[ShaderType::VS] = vs;
+    shaderSet[ShaderType::PS] = ps;
+    shaderSet[ShaderType::GS] = gs;
+    shaderSet[ShaderType::HS] = hs;
+    shaderSet[ShaderType::DS] = ds;
+    shaderSet[ShaderType::CS] = cs;
+
+    if (usedPtrCombinations_.Contains(shaderSet))
         return;
-    usedPtrCombinations_.Insert(shaderPair);
+    usedPtrCombinations_.Insert(shaderSet);
 
-    String vsName = vs->GetName();
-    String psName = ps->GetName();
-    const String& vsDefines = vs->GetDefines();
-    const String& psDefines = ps->GetDefines();
+    String vsName;
+    String psName;
+    String gsName;
+    String hsName;
+    String dsName;
+    String csName;
 
-    // Check for duplicate using strings (needed for combinations loaded from existing file)
-    String newCombination = vsName + " " + vsDefines + " " + psName + " " + psDefines;
-    if (usedCombinations_.Contains(newCombination))
+    String newCombination;
+
+    if (vs && ps && gs && hs && ds)
+    {
+        vsName = vs->GetName();
+        psName = ps->GetName();
+        gsName = gs->GetName();
+        hsName = hs->GetName();
+        dsName = ds->GetName();
+
+        const String& vsDefines = vs->GetDefines();
+        const String& psDefines = ps->GetDefines();
+        const String& gsDefines = gs->GetDefines();
+        const String& hsDefines = hs->GetDefines();
+        const String& dsDefines = ds->GetDefines();
+
+        // Check for duplicate using strings (needed for combinations loaded from existing file)
+        newCombination = vsName + " " + vsDefines 
+            + " " + psName + " " + psDefines
+            + " " + gsName + " " + gsDefines
+            + " " + hsName + " " + hsDefines
+            + " " + dsName + " " + dsDefines;
+
+        if (usedCombinations_.Contains(newCombination))
+            return;
+
+        usedCombinations_.Insert(newCombination);
+
+        XMLElement shaderElem = xmlFile_.GetRoot().CreateChild("shader");
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::VS], vsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::VS], vsDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::PS], psName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::PS], psDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::GS], gsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::GS], gsDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::HS], hsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::HS], hsDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::DS], dsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::DS], dsDefines);
+    }
+    else if (vs && ps && gs)
+    {
+        vsName = vs->GetName();
+        psName = ps->GetName();
+        gsName = gs->GetName();
+
+        const String& vsDefines = vs->GetDefines();
+        const String& psDefines = ps->GetDefines();
+        const String& gsDefines = gs->GetDefines();
+
+        // Check for duplicate using strings (needed for combinations loaded from existing file)
+        newCombination = vsName + " " + vsDefines
+            + " " + psName + " " + psDefines
+            +" " + gsName + " " + gsDefines;
+
+        if (usedCombinations_.Contains(newCombination))
+            return;
+
+        usedCombinations_.Insert(newCombination);
+
+        XMLElement shaderElem = xmlFile_.GetRoot().CreateChild("shader");
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::VS], vsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::VS], vsDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::PS], psName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::PS], psDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::GS], gsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::GS], gsDefines);
+    }
+    else if (vs && ps && hs && ds)
+    {
+        vsName = vs->GetName();
+        psName = ps->GetName();
+        hsName = hs->GetName();
+        dsName = ds->GetName();
+
+        const String& vsDefines = vs->GetDefines();
+        const String& psDefines = ps->GetDefines();
+        const String& hsDefines = hs->GetDefines();
+        const String& dsDefines = ds->GetDefines();
+
+        // Check for duplicate using strings (needed for combinations loaded from existing file)
+        newCombination = vsName + " " + vsDefines
+            + " " + psName + " " + psDefines
+            + " " + hsName + " " + hsDefines
+            + " " + dsName + " " + dsDefines;
+
+        if (usedCombinations_.Contains(newCombination))
+            return;
+
+        usedCombinations_.Insert(newCombination);
+
+        XMLElement shaderElem = xmlFile_.GetRoot().CreateChild("shader");
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::VS], vsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::VS], vsDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::PS], psName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::PS], psDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::HS], hsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::HS], hsDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::DS], dsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::DS], dsDefines);
+    }
+    else if (vs && ps)
+    {
+        vsName = vs->GetName();
+        psName = ps->GetName();
+
+        const String& vsDefines = vs->GetDefines();
+        const String& psDefines = ps->GetDefines();
+
+        // Check for duplicate using strings (needed for combinations loaded from existing file)
+        newCombination = vsName + " " + vsDefines + " " + psName + " " + psDefines;
+
+        if (usedCombinations_.Contains(newCombination))
+            return;
+
+        usedCombinations_.Insert(newCombination);
+
+        XMLElement shaderElem = xmlFile_.GetRoot().CreateChild("shader");
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::VS], vsName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::VS], vsDefines);
+
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::PS], psName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::PS], psDefines);
+    }
+    else if (cs)
+    {
+        csName = cs->GetName();
+        const String& csDefines = cs->GetDefines();
+
+        // Check for duplicate using strings (needed for combinations loaded from existing file)
+        newCombination = csName + " " + csDefines;
+
+        if (usedCombinations_.Contains(newCombination))
+            return;
+
+        usedCombinations_.Insert(newCombination);
+
+        XMLElement shaderElem = xmlFile_.GetRoot().CreateChild("shader");
+        shaderElem.SetAttribute(ShaderTypeName[ShaderType::CS], csName);
+        shaderElem.SetAttribute(ShaderTypeDefineName[ShaderType::CS], csDefines);
+    }
+    else
+    {
         return;
-    usedCombinations_.Insert(newCombination);
-
-    XMLElement shaderElem = xmlFile_.GetRoot().CreateChild("shader");
-    shaderElem.SetAttribute("vs", vsName);
-    shaderElem.SetAttribute("vsdefines", vsDefines);
-    shaderElem.SetAttribute("ps", psName);
-    shaderElem.SetAttribute("psdefines", psDefines);
+    }
 }
 
 void ShaderPrecache::LoadShaders(Graphics* graphics, Deserializer& source)
@@ -114,12 +294,28 @@ void ShaderPrecache::LoadShaders(Graphics* graphics, Deserializer& source)
     XMLElement shader = xmlFile.GetRoot().GetChild("shader");
     while (shader)
     {
-        String vsDefines = shader.GetAttribute("vsdefines");
-        String psDefines = shader.GetAttribute("psdefines");
+        String vsDefines = shader.GetAttribute(ShaderTypeDefineName[ShaderType::VS]);
+        String psDefines = shader.GetAttribute(ShaderTypeDefineName[ShaderType::PS]);
+        String gsDefines = shader.GetAttribute(ShaderTypeDefineName[ShaderType::GS]);
+        String hsDefines = shader.GetAttribute(ShaderTypeDefineName[ShaderType::HS]);
+        String dsDefines = shader.GetAttribute(ShaderTypeDefineName[ShaderType::DS]);
+        String csDefines = shader.GetAttribute(ShaderTypeDefineName[ShaderType::CS]);
+
+        String vsName = shader.GetAttribute(ShaderTypeName[ShaderType::VS]);
+        String psName = shader.GetAttribute(ShaderTypeName[ShaderType::PS]);
+        String gsName = shader.GetAttribute(ShaderTypeName[ShaderType::GS]);
+        String hsName = shader.GetAttribute(ShaderTypeName[ShaderType::HS]);
+        String dsName = shader.GetAttribute(ShaderTypeName[ShaderType::DS]);
+        String csName = shader.GetAttribute(ShaderTypeName[ShaderType::CS]);
 
         // Check for illegal variations on OpenGL ES and skip them
+        // gs / hs / ds / cs not valid
 #ifdef GL_ES_VERSION_2_0
         if (
+            !gsName.Empty() ||
+            !hsName.Empty() ||
+            !dsName.Empty() ||
+            !csName.Empty() ||
 #ifndef __EMSCRIPTEN__
             vsDefines.Contains("INSTANCED") ||
 #endif
@@ -130,10 +326,16 @@ void ShaderPrecache::LoadShaders(Graphics* graphics, Deserializer& source)
         }
 #endif
 
-        ShaderVariation* vs = graphics->GetShader(VS, shader.GetAttribute("vs"), vsDefines);
-        ShaderVariation* ps = graphics->GetShader(PS, shader.GetAttribute("ps"), psDefines);
+        ShaderVariation* vs = graphics->GetShader(ShaderType::VS, vsName, vsDefines);
+        ShaderVariation* ps = graphics->GetShader(ShaderType::PS, psName, psDefines);
+        ShaderVariation* gs = graphics->GetShader(ShaderType::GS, gsName, gsDefines);
+        ShaderVariation* hs = graphics->GetShader(ShaderType::HS, hsName, hsDefines);
+        ShaderVariation* ds = graphics->GetShader(ShaderType::DS, dsName, dsDefines);
+        ShaderVariation* cs = graphics->GetShader(ShaderType::CS, csName, csDefines);
+
         // Set the shaders active to actually compile them
-        graphics->SetShaders(vs, ps);
+        // This step should take care of checking if the set is valid
+        graphics->SetShaders(vs, ps, gs, hs, ds, cs);
 
         shader = shader.GetNext("shader");
     }

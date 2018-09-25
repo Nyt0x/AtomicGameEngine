@@ -2,21 +2,34 @@
 #include "Samplers.hlsl"
 #include "Transform.hlsl"
 
-void VS(float4 iPos : POSITION, 
-    float2 iTexCoord: TEXCOORD0,
-    out float2 oTexCoord : TEXCOORD0, 
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+    float2 TexCoord: TEXCOORD0;
+};
+
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    Out.Pos = GetClipPos(worldPos);
     
-    oPos.z = oPos.w;
-    oTexCoord = iTexCoord;
+    Out.Pos.z = oPos.w;
+    Out.TexCoord = In.TexCoord;
 }
 
-void PS(float2 iTexCoord : TEXCOORD0, 
-        out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
-    oColor = cMatDiffColor * Sample2D(DiffMap, iTexCoord);
+    Out.Color = cMatDiffColor * Sample2D(DiffMap, In.TexCoord);
 }

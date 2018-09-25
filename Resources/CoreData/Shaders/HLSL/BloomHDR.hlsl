@@ -51,114 +51,126 @@ cbuffer CustomPS : register(b6)
 
 static const int BlurKernelSize = 5;
 
-void VS(float4 iPos : POSITION,
-    out float2 oTexCoord : TEXCOORD0,
-    out float2 oScreenPos : TEXCOORD1,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
-    float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    float4 Pos : POSITION;
+};
 
-    oTexCoord = GetQuadTexCoord(oPos);
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
+    float2 ScreenPos : TEXCOORD1;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
+    float3 worldPos = GetWorldPos(modelMatrix);
+    Out.Pos = GetClipPos(worldPos);
+
+    Out.TexCoord = GetQuadTexCoord(Out.Pos);
 
     #ifdef BLUR2
-    oTexCoord = GetQuadTexCoord(oPos) + cBright2Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright2Offsets;
     #endif
 
     #ifdef BLUR4
-    oTexCoord = GetQuadTexCoord(oPos) + cBright4Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright4Offsets;
     #endif
 
     #ifdef BLUR8
-    oTexCoord = GetQuadTexCoord(oPos) + cBright8Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright8Offsets;
     #endif
 
     #ifdef BLUR16
-    oTexCoord = GetQuadTexCoord(oPos) + cBright16Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright16Offsets;
     #endif
 
     #ifdef COMBINE2
-    oTexCoord = GetQuadTexCoord(oPos) + cBright2Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright2Offsets;
     #endif
 
     #ifdef COMBINE4
-    oTexCoord = GetQuadTexCoord(oPos) + cBright4Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright4Offsets;
     #endif
 
     #ifdef COMBINE8
-    oTexCoord = GetQuadTexCoord(oPos) + cBright8Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright8Offsets;
     #endif
 
     #ifdef COMBINE16
-    oTexCoord = GetQuadTexCoord(oPos) + cBright16Offsets;
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBright16Offsets;
     #endif
 
-    oScreenPos = GetScreenPosPreDiv(oPos);
+    Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
 }
 
-void PS(float2 iTexCoord : TEXCOORD0,
-    float2 iScreenPos : TEXCOORD1,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     #ifdef BRIGHT
-    float3 color = Sample2D(DiffMap, iScreenPos).rgb;
-    oColor = float4(max(color - cBloomHDRThreshold, 0.0), 1.0);
+    float3 color = Sample2D(DiffMap, In.ScreenPos).rgb;
+    Out.Color = float4(max(color - cBloomHDRThreshold, 0.0), 1.0);
     #endif
 
     #ifndef D3D11
 
     #ifdef BLUR16
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright16InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright16InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, In.TexCoord);
     #endif
 
     #ifdef BLUR8
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright8InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright8InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, In.TexCoord);
     #endif
 
     #ifdef BLUR4
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright4InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright4InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, In.TexCoord);
     #endif
 
     #ifdef BLUR2
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright2InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright2InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, sDiffMap, In.TexCoord);
     #endif
     
     #else
 
     #ifdef BLUR16
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright16InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright16InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
     #endif
 
     #ifdef BLUR8
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright8InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright8InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
     #endif
 
     #ifdef BLUR4
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright4InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright4InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
     #endif
 
     #ifdef BLUR2
-    oColor = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright2InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+    Out.Color = GaussianBlur(BlurKernelSize, cBloomHDRBlurDir, cBright2InvSize * cBloomHDRBlurRadius, cBloomHDRBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
     #endif
     
     #endif
 
     #ifdef COMBINE16
-    oColor = Sample2D(DiffMap, iScreenPos) + Sample2D(NormalMap, iTexCoord);
+    Out.Color = Sample2D(DiffMap, In.ScreenPos) + Sample2D(NormalMap, In.TexCoord);
     #endif
 
     #ifdef COMBINE8
-    oColor = Sample2D(DiffMap, iScreenPos) + Sample2D(NormalMap, iTexCoord);
+    Out.Color = Sample2D(DiffMap, In.ScreenPos) + Sample2D(NormalMap, In.TexCoord);
     #endif
 
     #ifdef COMBINE4
-    oColor = Sample2D(DiffMap, iScreenPos) + Sample2D(NormalMap, iTexCoord);
+    Out.Color = Sample2D(DiffMap, In.ScreenPos) + Sample2D(NormalMap, In.TexCoord);
     #endif
 
     #ifdef COMBINE2
-    float3 color = Sample2D(DiffMap, iScreenPos).rgb * cBloomHDRMix.x;
-    float3 bloom = Sample2D(NormalMap, iTexCoord).rgb * cBloomHDRMix.y;
-    oColor = float4(color + bloom, 1.0);
+    float3 color = Sample2D(DiffMap, In.ScreenPos).rgb * cBloomHDRMix.x;
+    float3 bloom = Sample2D(NormalMap, In.TexCoord).rgb * cBloomHDRMix.y;
+    Out.Color = float4(color + bloom, 1.0);
     #endif
 }

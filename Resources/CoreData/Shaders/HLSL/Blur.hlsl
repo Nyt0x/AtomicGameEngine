@@ -10,51 +10,63 @@ uniform float cBlurSigma;
 uniform float2 cBlurHOffsets;
 uniform float2 cBlurHInvSize;
 
-void VS(float4 iPos : POSITION,
-    out float2 oTexCoord : TEXCOORD0,
-    out float2 oScreenPos : TEXCOORD1,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+};
+
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
+    float2 ScreenPos : TEXCOORD1;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oTexCoord = GetQuadTexCoord(oPos) + cBlurHOffsets;
-    oScreenPos = GetScreenPosPreDiv(oPos);
+    Out.Pos = GetClipPos(worldPos);
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBlurHOffsets;
+    Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
 }
 
-void PS(float2 iTexCoord : TEXCOORD0,
-    float2 iScreenPos : TEXCOORD1,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     #ifdef BLUR3
         #ifndef D3D11 
-            oColor = GaussianBlur(3, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(3, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, In.TexCoord);
         #else
-            oColor = GaussianBlur(3, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(3, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
         #endif
     #endif
 
     #ifdef BLUR5
         #ifndef D3D11
-            oColor = GaussianBlur(5, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(5, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, In.TexCoord);
         #else
-            oColor = GaussianBlur(5, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(5, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
         #endif
     #endif
 
     #ifdef BLUR7
         #ifndef D3D11
-            oColor = GaussianBlur(7, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(7, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, In.TexCoord);
         #else
-            oColor = GaussianBlur(7, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(7, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
         #endif
     #endif
 
     #ifdef BLUR9
         #ifndef D3D11
-            oColor = GaussianBlur(9, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(9, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, sDiffMap, In.TexCoord);
         #else
-            oColor = GaussianBlur(9, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, iTexCoord);
+            Out.Color = GaussianBlur(9, cBlurDir, cBlurHInvSize * cBlurRadius, cBlurSigma, tDiffMap, sDiffMap, In.TexCoord);
         #endif
     #endif
 }

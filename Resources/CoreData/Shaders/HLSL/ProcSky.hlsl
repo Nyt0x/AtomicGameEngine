@@ -2,20 +2,34 @@
 #include "Samplers.hlsl"
 #include "Transform.hlsl"
 
-void VS(float4 iPos : POSITION,
-		float3 iNormal : NORMAL, 
-		out float4 oPos : POSITION, 
-		out float3 oTexCoord : TEXCOORD0)
+struct VertexIn
 {
-	oPos = iPos;
-	oTexCoord = iNormal;
+    float4 Pos : POSITION;
+    float3 Normal : NORMAL;
+};
+
+struct PixelIn
+{
+    float4 Pos : POSITION;
+    float3 TexCoord : TEXCOORD0;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    Out.Pos = In.Pos;
+    Out.TexCoord = In.Normal;
 }
 
-void PS(float3 oTexCoord: TEXCOORD0, out float4 oColor : COLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
-    float3 V = normalize( oTexCoord ) + float3(0, 0.2 ,0);
+    float3 V = normalize( In.TexCoord ) + float3(0, 0.2 ,0);
     float2 lt = float2( (1.0 + normalize( V.xz ).y) / 2.0, 1.0 - normalize( V ).y );
-    oColor = float4(tex2D( sDiffMap, lt ).rgb, 1.0);
+    Out.Color = float4(tex2D( sDiffMap, lt ).rgb, 1.0);
 }
 
 

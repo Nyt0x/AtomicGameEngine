@@ -40,15 +40,20 @@ class Vector3;
 /// Primitive type.
 enum PrimitiveType
 {
+    //UNDEFINED = 0,
     TRIANGLE_LIST = 0,
     LINE_LIST,
     POINT_LIST,
     TRIANGLE_STRIP,
     LINE_STRIP,
-    TRIANGLE_FAN
+    TRIANGLE_FAN,
+    //CONTROL_POINT_PATCHLIST_1,
+    //CONTROL_POINT_PATCHLIST_2,
+    CONTROL_POINT_PATCHLIST_3,
+    CONTROL_POINT_PATCHLIST_4
 };
 
-/// %Geometry type for vertex shader geometry variations.
+/// %Geometry type.
 enum GeometryType
 {
     GEOM_STATIC = 0,
@@ -298,6 +303,49 @@ enum ShaderType
 {
     VS = 0,
     PS,
+#ifdef DESKTOP_GRAPHICS
+    GS,
+    HS,
+    DS,
+    CS,
+#endif
+    MAX_SHADER_TYPE
+};
+
+static const char* ShaderTypeDefine[] = {
+    "COMPILEVS",
+    "COMPILEPS",
+    "COMPILEGS",
+    "COMPILEHS",
+    "COMPILEDS",
+    "COMPILECS"
+};
+
+static const char* ShaderEntryPoint[] = {
+    "VS",
+    "PS",
+    "GS",
+    "HS",
+    "DS",
+    "CS"
+};
+
+static const char* ShaderTypeName[] = {
+    "vs",
+    "ps",
+    "gs",
+    "hs",
+    "ds",
+    "cs"
+};
+
+static const char* ShaderTypeDefineName[] = {
+    "vsdefines",
+    "psdefines",
+    "gsdefines",
+    "hsdefines",
+    "dsdefines",
+    "csdefines"
 };
 
 /// Shader parameter groups for determining need to update. On APIs that support constant buffers, these correspond to different constant buffers.
@@ -388,6 +436,7 @@ extern ATOMIC_API const StringHash VSP_NORMALOFFSETSCALE;
 extern ATOMIC_API const StringHash VSP_MODEL;
 extern ATOMIC_API const StringHash VSP_VIEW;
 extern ATOMIC_API const StringHash VSP_VIEWINV;
+extern ATOMIC_API const StringHash VSP_PROJINV;
 extern ATOMIC_API const StringHash VSP_VIEWPROJ;
 extern ATOMIC_API const StringHash VSP_UOFFSET;
 extern ATOMIC_API const StringHash VSP_VOFFSET;
@@ -426,6 +475,14 @@ extern ATOMIC_API const StringHash PSP_LIGHTRAD;
 extern ATOMIC_API const StringHash PSP_LIGHTLENGTH;
 extern ATOMIC_API const StringHash PSP_ZONEMIN;
 extern ATOMIC_API const StringHash PSP_ZONEMAX;
+extern ATOMIC_API const StringHash PSP_ZONEPOSITIONWS;
+extern ATOMIC_API const StringHash PSP_RENDERBUFFERSIZE;
+extern ATOMIC_API const StringHash PSP_VIEWPROJ;
+extern ATOMIC_API const StringHash PSP_VIEW;
+extern ATOMIC_API const StringHash PSP_PROJ;
+extern ATOMIC_API const StringHash PSP_VIEWINV;
+
+extern ATOMIC_API const StringHash HSP_TESSELATIONAMOUNT;
 
 // Scale calculation from bounding box diagonal.
 extern ATOMIC_API const Vector3 DOT_SCALE;

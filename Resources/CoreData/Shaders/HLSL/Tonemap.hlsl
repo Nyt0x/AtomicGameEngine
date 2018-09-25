@@ -23,32 +23,45 @@ cbuffer CustomPS : register(b6)
 
 #endif
 
-void VS(float4 iPos : POSITION,
-    out float2 oScreenPos : TEXCOORD0,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+};
+
+struct PixelIn
+{
+    float2 ScreenPos : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oScreenPos = GetScreenPosPreDiv(oPos);
+    Out.Pos = GetClipPos(worldPos);
+    Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
 }
 
-void PS(float2 iScreenPos : TEXCOORD0,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     #ifdef REINHARDEQ3
-    float3 color = ReinhardEq3Tonemap(max(Sample2D(DiffMap, iScreenPos).rgb * cTonemapExposureBias, 0.0));
-    oColor = float4(color, 1.0);
+    float3 color = ReinhardEq3Tonemap(max(Sample2D(DiffMap, In.ScreenPos).rgb * cTonemapExposureBias, 0.0));
+    Out.Color = float4(color, 1.0);
     #endif
 
     #ifdef REINHARDEQ4
-    float3 color = ReinhardEq4Tonemap(max(Sample2D(DiffMap, iScreenPos).rgb * cTonemapExposureBias, 0.0), cTonemapMaxWhite);
-    oColor = float4(color, 1.0);
+    float3 color = ReinhardEq4Tonemap(max(Sample2D(DiffMap, In.ScreenPos).rgb * cTonemapExposureBias, 0.0), cTonemapMaxWhite);
+    Out.Color = float4(color, 1.0);
     #endif
 
     #ifdef UNCHARTED2
-    float3 color = Uncharted2Tonemap(max(Sample2D(DiffMap, iScreenPos).rgb * cTonemapExposureBias, 0.0)) / 
+    float3 color = Uncharted2Tonemap(max(Sample2D(DiffMap, In.ScreenPos).rgb * cTonemapExposureBias, 0.0)) / 
         Uncharted2Tonemap(float3(cTonemapMaxWhite, cTonemapMaxWhite, cTonemapMaxWhite));
-    oColor = float4(color, 1.0);
+    Out.Color = float4(color, 1.0);
     #endif
 }

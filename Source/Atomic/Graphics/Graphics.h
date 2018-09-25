@@ -153,7 +153,7 @@ public:
     /// Set index buffer.
     void SetIndexBuffer(IndexBuffer* buffer);
     /// Set shaders.
-    void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
+    void SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariation* gs = nullptr, ShaderVariation* hs = nullptr, ShaderVariation* ds = nullptr, ShaderVariation* cs = nullptr);
     /// Set shader float constants.
     void SetShaderParameter(StringHash param, const float* data, unsigned count);
     /// Set shader float constant.
@@ -392,6 +392,18 @@ public:
     /// Return current pixel shader.
     ShaderVariation* GetPixelShader() const { return pixelShader_; }
 
+    /// Return current geometry shader.
+    ShaderVariation* GetGeometryShader() const { return geometryShader_; }
+
+    /// Return current hull shader.
+    ShaderVariation* GetHullShader() const { return hullShader_; }
+
+    /// Return current domain shader.
+    ShaderVariation* GetDomainShader() const { return domainShader_; }
+
+    /// Return current pixel shader.
+    ShaderVariation* GetComputeShader() const { return computeShader_; }
+
     /// Return shader program. This is an API-specific class and should not be used by applications.
     ShaderProgram* GetShaderProgram() const;
 
@@ -443,6 +455,11 @@ public:
 
     /// Return polygon fill mode.
     FillMode GetFillMode() const { return fillMode_; }
+
+    /// Return primitives type.
+    PrimitiveType GetPrimitiveType() { return primitiveType_; }
+
+    //void SetPrimitiveType(PrimitiveType type) { primitiveType_ = type; }
 
     /// Return whether line antialiasing is enabled.
     bool GetLineAntiAlias() const { return lineAntiAlias_; }
@@ -551,6 +568,8 @@ public:
     static unsigned GetDepthStencilFormat();
     /// Return the API-specific readable hardware depth format, or 0 if not supported.
     static unsigned GetReadableDepthFormat();
+    /// Return the API-specific RGB 32-bit float texture format.
+    static unsigned GetRGBFloat32Format();
     /// Return the API-specific texture format from a textual description, for example "rgb".
     static unsigned GetFormat(const String& formatName);
 
@@ -726,11 +745,19 @@ private:
     /// Current vertex declaration hash.
     unsigned long long vertexDeclarationHash_;
     /// Current primitive type.
-    unsigned primitiveType_;
+    PrimitiveType primitiveType_;
     /// Vertex shader in use.
     ShaderVariation* vertexShader_;
     /// Pixel shader in use.
     ShaderVariation* pixelShader_;
+    /// Vertex shader in use.
+    ShaderVariation* geometryShader_;
+    /// Pixel shader in use.
+    ShaderVariation* hullShader_;
+    /// Vertex shader in use.GetFillMode
+    ShaderVariation* domainShader_;
+    /// Pixel shader in use.
+    ShaderVariation* computeShader_;
     /// Textures in use.
     Texture* textures_[MAX_TEXTURE_UNITS];
     /// Texture unit mappings.

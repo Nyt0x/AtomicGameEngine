@@ -2,60 +2,68 @@
 #include "Samplers.hlsl"
 #include "Transform.hlsl"
 
-void VS(float4 iPos : POSITION,
-    #ifndef NOUV
-        float2 iTexCoord : TEXCOORD0,
-    #endif
-    #ifdef SKINNED
-        float4 iBlendWeights : BLENDWEIGHT,
-        int4 iBlendIndices : BLENDINDICES,
-    #endif
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-    #if defined(BILLBOARD) || defined(DIRBILLBOARD)
-        float2 iSize : TEXCOORD1,
-    #endif
-    #ifdef VSM_SHADOW
-        out float4 oTexCoord : TEXCOORD0,
-    #else
-        out float2 oTexCoord : TEXCOORD0,
-    #endif
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
+{
+    float4 Pos : POSITION;
+#ifndef NOUV
+    float2 TexCoord : TEXCOORD0;
+#endif
+#ifdef SKINNED
+    float4 BlendWeights : BLENDWEIGHT;
+    int4 BlendIndices : BLENDINDICES;
+#endif
+#ifdef INSTANCED
+    float4x3 ModelInstance : TEXCOORD4;
+#endif
+#if defined(BILLBOARD) || defined(DIRBILLBOARD)
+    float2 Size : TEXCOORD1;
+#endif
+};
+
+struct PixelIn
+{
+#ifdef VSM_SHADOW
+    float4 TexCoord : TEXCOORD0;
+#else
+    float2 TexCoord : TEXCOORD0;
+#endif
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
 {
     // Define a 0,0 UV coord if not expected from the vertex data
     #ifdef NOUV
-    float2 iTexCoord = float2(0.0, 0.0);
+    float2 In.TexCoord = float2(0.0, 0.0);
     #endif
 
-    float4x3 modelMatrix = iModelMatrix;
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    Out.Pos = GetClipPos(worldPos);
     #ifdef VSM_SHADOW
-        oTexCoord = float4(GetTexCoord(iTexCoord), oPos.z, oPos.w);
+        Out.TexCoord = float4(GetTexCoord(In.TexCoord), Out.Pos.z, Out.Pos.w);
     #else
-        oTexCoord = GetTexCoord(iTexCoord);
+        Out.TexCoord = GetTexCoord(In.TexCoord);
     #endif
 }
 
-void PS(
-    #ifdef VSM_SHADOW
-        float4 iTexCoord : TEXCOORD0,
-    #else
-        float2 iTexCoord : TEXCOORD0,
-    #endif
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     #ifdef ALPHAMASK
-        float alpha = Sample2D(DiffMap, iTexCoord.xy).a;
+        float alpha = Sample2D(DiffMap, In.TexCoord.xy).a;
         if (alpha < 0.5)
             discard;
     #endif
 
     #ifdef VSM_SHADOW
-        float depth = iTexCoord.z / iTexCoord.w;
-        oColor = float4(depth, depth * depth, 1.0, 1.0);
+        float depth = In.TexCoord.z / In.TexCoord.w;
+        Out.Color = float4(depth, depth * depth, 1.0, 1.0);
     #else
-        oColor = 1.0;
+        Out.Color = 1.0;
     #endif
 }

@@ -37,37 +37,121 @@ class ATOMIC_API ShaderProgram : public RefCounted
 
 public:
     /// Construct.
-    ShaderProgram(Graphics* graphics, ShaderVariation* vertexShader, ShaderVariation* pixelShader)
+    ShaderProgram(Graphics* graphics
+        , ShaderVariation* vertexShader
+        , ShaderVariation* pixelShader
+        , ShaderVariation* geometryShader
+        , ShaderVariation* hullShader
+        , ShaderVariation* domainShader
+        , ShaderVariation* computeShader)
     {
+        // Verify shader variation exist
         // Create needed constant buffers
-        const unsigned* vsBufferSizes = vertexShader->GetConstantBufferSizes();
-        for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+        // Then copy parameters, add direct links to constant buffers
+        
+        if(vertexShader)
         {
-            if (vsBufferSizes[i])
-                vsConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(VS, i, vsBufferSizes[i]);
+            const unsigned* vsBufferSizes = vertexShader->GetConstantBufferSizes();
+            for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+            {
+                if (vsBufferSizes[i])
+                    vsConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(ShaderType::VS, i, vsBufferSizes[i]);
+            }
+
+            const HashMap<StringHash, ShaderParameter>& vsParams = vertexShader->GetParameters();
+            for (HashMap<StringHash, ShaderParameter>::ConstIterator i = vsParams.Begin(); i != vsParams.End(); ++i)
+            {
+                parameters_[i->first_] = i->second_;
+                parameters_[i->first_].bufferPtr_ = vsConstantBuffers_[i->second_.buffer_].Get();
+            }
         }
 
-        const unsigned* psBufferSizes = pixelShader->GetConstantBufferSizes();
-        for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+        if(pixelShader)
         {
-            if (psBufferSizes[i])
-                psConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(PS, i, psBufferSizes[i]);
+            const unsigned* psBufferSizes = pixelShader->GetConstantBufferSizes();
+            for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+            {
+                if (psBufferSizes[i])
+                    psConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(ShaderType::PS, i, psBufferSizes[i]);
+            }
+
+            const HashMap<StringHash, ShaderParameter>& psParams = pixelShader->GetParameters();
+            for (HashMap<StringHash, ShaderParameter>::ConstIterator i = psParams.Begin(); i != psParams.End(); ++i)
+            {
+                parameters_[i->first_] = i->second_;
+                parameters_[i->first_].bufferPtr_ = psConstantBuffers_[i->second_.buffer_].Get();
+            }
         }
 
-        // Copy parameters, add direct links to constant buffers
-        const HashMap<StringHash, ShaderParameter>& vsParams = vertexShader->GetParameters();
-        for (HashMap<StringHash, ShaderParameter>::ConstIterator i = vsParams.Begin(); i != vsParams.End(); ++i)
+#ifdef DESKTOP_GRAPHICS
+        if(geometryShader)
         {
-            parameters_[i->first_] = i->second_;
-            parameters_[i->first_].bufferPtr_ = vsConstantBuffers_[i->second_.buffer_].Get();
+            const unsigned* gsBufferSizes = geometryShader->GetConstantBufferSizes();
+            for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+            {
+                if (gsBufferSizes[i])
+                    gsConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(ShaderType::GS, i, gsBufferSizes[i]);
+            }
+
+            const HashMap<StringHash, ShaderParameter>& gsParams = geometryShader->GetParameters();
+            for (HashMap<StringHash, ShaderParameter>::ConstIterator i = gsParams.Begin(); i != gsParams.End(); ++i)
+            {
+                parameters_[i->first_] = i->second_;
+                parameters_[i->first_].bufferPtr_ = gsConstantBuffers_[i->second_.buffer_].Get();
+            }
         }
 
-        const HashMap<StringHash, ShaderParameter>& psParams = pixelShader->GetParameters();
-        for (HashMap<StringHash, ShaderParameter>::ConstIterator i = psParams.Begin(); i != psParams.End(); ++i)
+        if(hullShader)
         {
-            parameters_[i->first_] = i->second_;
-            parameters_[i->first_].bufferPtr_ = psConstantBuffers_[i->second_.buffer_].Get();
+            const unsigned* hsBufferSizes = hullShader->GetConstantBufferSizes();
+            for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+            {
+                if (hsBufferSizes[i])
+                    hsConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(ShaderType::HS, i, hsBufferSizes[i]);
+            }
+
+            const HashMap<StringHash, ShaderParameter>& hsParams = hullShader->GetParameters();
+            for (HashMap<StringHash, ShaderParameter>::ConstIterator i = hsParams.Begin(); i != hsParams.End(); ++i)
+            {
+                parameters_[i->first_] = i->second_;
+                parameters_[i->first_].bufferPtr_ = hsConstantBuffers_[i->second_.buffer_].Get();
+            }
         }
+
+        if(domainShader)
+        {
+            const unsigned* dsBufferSizes = domainShader->GetConstantBufferSizes();
+            for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+            {
+                if (dsBufferSizes[i])
+                    dsConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(ShaderType::DS, i, dsBufferSizes[i]);
+            }
+
+            const HashMap<StringHash, ShaderParameter>& dsParams = domainShader->GetParameters();
+            for (HashMap<StringHash, ShaderParameter>::ConstIterator i = dsParams.Begin(); i != dsParams.End(); ++i)
+            {
+                parameters_[i->first_] = i->second_;
+                parameters_[i->first_].bufferPtr_ = dsConstantBuffers_[i->second_.buffer_].Get();
+            }
+        }
+
+        if(computeShader)
+        {
+            const unsigned* csBufferSizes = computeShader->GetConstantBufferSizes();
+            for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+            {
+                if (csBufferSizes[i])
+                    csConstantBuffers_[i] = graphics->GetOrCreateConstantBuffer(ShaderType::CS, i, csBufferSizes[i]);
+            }
+
+            const HashMap<StringHash, ShaderParameter>& csParams = computeShader->GetParameters();
+            for (HashMap<StringHash, ShaderParameter>::ConstIterator i = csParams.Begin(); i != csParams.End(); ++i)
+            {
+                parameters_[i->first_] = i->second_;
+                parameters_[i->first_].bufferPtr_ = csConstantBuffers_[i->second_.buffer_].Get();
+            }
+        }
+#endif
 
         // Optimize shader parameter lookup by rehashing to next power of two
         parameters_.Rehash(NextPowerOfTwo(parameters_.Size()));
@@ -85,6 +169,14 @@ public:
     SharedPtr<ConstantBuffer> vsConstantBuffers_[MAX_SHADER_PARAMETER_GROUPS];
     /// Pixel shader constant buffers.
     SharedPtr<ConstantBuffer> psConstantBuffers_[MAX_SHADER_PARAMETER_GROUPS];
+    /// Geometry shader constant buffers.
+    SharedPtr<ConstantBuffer> gsConstantBuffers_[MAX_SHADER_PARAMETER_GROUPS];
+    /// Hull shader constant buffers.
+    SharedPtr<ConstantBuffer> hsConstantBuffers_[MAX_SHADER_PARAMETER_GROUPS];
+    /// Domain shader constant buffers.
+    SharedPtr<ConstantBuffer> dsConstantBuffers_[MAX_SHADER_PARAMETER_GROUPS];
+    /// Compute shader constant buffers.
+    SharedPtr<ConstantBuffer> csConstantBuffers_[MAX_SHADER_PARAMETER_GROUPS];
 };
 
 }

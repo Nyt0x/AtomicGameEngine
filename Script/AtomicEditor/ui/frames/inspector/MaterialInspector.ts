@@ -49,6 +49,12 @@ var lightmapSource = new Atomic.UIMenuItemSource();
 lightmapSource.addItem(new Atomic.UIMenuItem("Lightmap", "Lightmap"));
 lightmapSource.addItem(new Atomic.UIMenuItem("Lightmap Alpha", "Lightmap Alpha"));
 
+var miscSource = new Atomic.UIMenuItemSource();
+miscSource.addItem(new Atomic.UIMenuItem("TessTest", "TessTest"));
+miscSource.addItem(new Atomic.UIMenuItem("GeomTest", "GeomTest"));
+miscSource.addItem(new Atomic.UIMenuItem("Water", "Water"));
+miscSource.addItem(new Atomic.UIMenuItem("WaterHQ", "WaterHQ"));
+
 var projectSource = new Atomic.UIMenuItemSource();
 var _ = new Atomic.UIMenuItem();
 
@@ -64,7 +70,11 @@ var techniqueLookup = {
     "Techniques/DiffAdd.xml": "Additive",
     "Techniques/NoTexture.xml": "No Texture",
     "Techniques/DiffLightMap.xml": "Lightmap",
-    "Techniques/DiffLightMapAlpha.xml": "Lightmap Alpha"
+    "Techniques/DiffLightMapAlpha.xml": "Lightmap Alpha",
+    "Techniques/TessTest.xml": "TessTest",
+    "Techniques/DiffGSWireframeLit.xml": "GeomTest",
+    "Techniques/Water.xml": "Water",
+    "Techniques/WaterHQ.xml": "WaterHQ"
 };
 
 var techniqueReverseLookup = {};
@@ -483,6 +493,10 @@ class MaterialInspector extends ScriptWidget {
 
         _ = new Atomic.UIMenuItem("Lightmap");
         _.subSource = lightmapSource;
+        techniqueSource.addItem(_);
+
+        _ = new Atomic.UIMenuItem("Misc");
+        _.subSource = miscSource;
         techniqueSource.addItem(_);
 
         var projectTechniquesPath = ToolCore.toolSystem.project.getResourcePath() + "Techniques";

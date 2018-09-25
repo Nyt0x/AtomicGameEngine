@@ -51,6 +51,7 @@ extern ATOMIC_API const StringHash VSP_NORMALOFFSETSCALE("NormalOffsetScale");
 extern ATOMIC_API const StringHash VSP_MODEL("Model");
 extern ATOMIC_API const StringHash VSP_VIEW("View");
 extern ATOMIC_API const StringHash VSP_VIEWINV("ViewInv");
+extern ATOMIC_API const StringHash VSP_PROJINV("ProjInv");
 extern ATOMIC_API const StringHash VSP_VIEWPROJ("ViewProj");
 extern ATOMIC_API const StringHash VSP_UOFFSET("UOffset");
 extern ATOMIC_API const StringHash VSP_VOFFSET("VOffset");
@@ -89,6 +90,14 @@ extern ATOMIC_API const StringHash PSP_LIGHTRAD("LightRad");
 extern ATOMIC_API const StringHash PSP_LIGHTLENGTH("LightLength");
 extern ATOMIC_API const StringHash PSP_ZONEMIN("ZoneMin");
 extern ATOMIC_API const StringHash PSP_ZONEMAX("ZoneMax");
+extern ATOMIC_API const StringHash PSP_ZONEPOSITIONWS("ZonePositionWS");
+extern ATOMIC_API const StringHash PSP_RENDERBUFFERSIZE("RenderBufferSize");
+extern ATOMIC_API const StringHash PSP_VIEW("ViewPS");
+extern ATOMIC_API const StringHash PSP_PROJ("ProjPS");
+extern ATOMIC_API const StringHash PSP_VIEWPROJ("ViewProjPS");
+extern ATOMIC_API const StringHash PSP_VIEWINV("ViewInvPS");
+
+extern ATOMIC_API const StringHash HSP_TESSELATIONAMOUNT("TessellationAmount");
 
 extern ATOMIC_API const Vector3 DOT_SCALE(1 / 3.0f, 1 / 3.0f, 1 / 3.0f);
 

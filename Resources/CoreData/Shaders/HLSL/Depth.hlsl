@@ -2,40 +2,52 @@
 #include "Samplers.hlsl"
 #include "Transform.hlsl"
 
-void VS(float4 iPos : POSITION,
-    #ifdef SKINNED
-        float4 iBlendWeights : BLENDWEIGHT,
-        int4 iBlendIndices : BLENDINDICES,
-    #endif
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-    #ifndef NOUV
-        float2 iTexCoord : TEXCOORD0,
-    #endif
-    out float3 oTexCoord : TEXCOORD0,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
+{
+float4 Pos : POSITION;
+#ifdef SKINNED
+    float4 BlendWeights : BLENDWEIGHT;
+    int4 BlendIndices : BLENDINDICES;
+#endif
+#ifdef INSTANCED
+    float4x3 ModelInstance : TEXCOORD4;
+#endif
+#ifndef NOUV
+    float2 TexCoord : TEXCOORD0;
+#endif
+};
+
+struct PixelIn
+{
+    float3 TexCoord : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
 {
     // Define a 0,0 UV coord if not expected from the vertex data
     #ifdef NOUV
-    float2 iTexCoord = float2(0.0, 0.0);
+    float2 In.TexCoord = float2(0.0, 0.0);
     #endif
     
-    float4x3 modelMatrix = iModelMatrix;
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oTexCoord = float3(GetTexCoord(iTexCoord), GetDepth(oPos));
+    Out.Pos = GetClipPos(worldPos);
+    Out.TexCoord = float3(GetTexCoord(In.TexCoord), GetDepth(Out.Pos));
 }
 
-void PS(
-    float3 iTexCoord : TEXCOORD0,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     #ifdef ALPHAMASK
-        float alpha = Sample2D(DiffMap, iTexCoord.xy).a;
+        float alpha = Sample2D(sDiffMap, In.TexCoord.xy).a;
         if (alpha < 0.5)
             discard;
     #endif
 
-    oColor = iTexCoord.z;
+    Out.Color = In.TexCoord.z;
 }

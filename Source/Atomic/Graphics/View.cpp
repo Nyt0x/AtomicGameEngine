@@ -636,7 +636,8 @@ void View::Render()
 
     // Reset state after commands
     graphics_->SetFillMode(FILL_SOLID);
-    graphics_->SetLineAntiAlias(false);
+	graphics_->SetLineAntiAlias(false);
+    //graphics_->SetPrimitiveType(TRIANGLE_LIST);
     graphics_->SetClipPlane(false);
     graphics_->SetColorWrite(true);
     graphics_->SetDepthBias(0.0f, 0.0f);
@@ -722,8 +723,10 @@ void View::SetCameraShaderParameters(Camera* camera)
     Matrix3x4 cameraEffectiveTransform = camera->GetEffectiveWorldTransform();
 
     graphics_->SetShaderParameter(VSP_CAMERAPOS, cameraEffectiveTransform.Translation());
-    graphics_->SetShaderParameter(VSP_VIEWINV, cameraEffectiveTransform);
-    graphics_->SetShaderParameter(VSP_VIEW, camera->GetView());
+	graphics_->SetShaderParameter(VSP_VIEWINV, cameraEffectiveTransform);
+	graphics_->SetShaderParameter(PSP_VIEWINV, cameraEffectiveTransform);
+	graphics_->SetShaderParameter(VSP_VIEW, camera->GetView());
+	graphics_->SetShaderParameter(PSP_VIEW, camera->GetView());
     graphics_->SetShaderParameter(PSP_CAMERAPOS, cameraEffectiveTransform.Translation());
 
     float nearClip = camera->GetNearClip();
@@ -732,6 +735,8 @@ void View::SetCameraShaderParameters(Camera* camera)
     graphics_->SetShaderParameter(VSP_FARCLIP, farClip);
     graphics_->SetShaderParameter(PSP_NEARCLIP, nearClip);
     graphics_->SetShaderParameter(PSP_FARCLIP, farClip);
+	IntVector2 rtSizeNow = graphics_->GetRenderTargetDimensions();
+	graphics_->SetShaderParameter(PSP_RENDERBUFFERSIZE, Vector2(float(rtSizeNow.x_), float(rtSizeNow.y_)));
 
     Vector4 depthMode = Vector4::ZERO;
     if (camera->IsOrthographic())
@@ -766,7 +771,10 @@ void View::SetCameraShaderParameters(Camera* camera)
     projection.m23_ += projection.m33_ * constantBias;
 #endif
 
-    graphics_->SetShaderParameter(VSP_VIEWPROJ, projection * camera->GetView());
+	graphics_->SetShaderParameter(VSP_VIEWPROJ, projection * camera->GetView());
+	graphics_->SetShaderParameter(PSP_VIEWPROJ, projection * camera->GetView());
+	graphics_->SetShaderParameter(VSP_PROJINV, projection.Inverse());
+	graphics_->SetShaderParameter(PSP_PROJ, projection);
 
     // If in a scene pass and the command defines shader parameters, set them now
     if (passCommand_)
@@ -1158,8 +1166,13 @@ void View::GetLightBatches()
                     volumeBatch.lightQueue_ = &lightQueue;
                     volumeBatch.distance_ = light->GetDistance();
                     volumeBatch.material_ = 0;
+                    volumeBatch.geometryShader_ = 0;
+                    volumeBatch.hullShader_ = 0;
+                    volumeBatch.domainShader_ = 0;
+                    volumeBatch.computeShader_ = 0;
                     volumeBatch.pass_ = 0;
                     volumeBatch.zone_ = 0;
+                    // ... [5/24/2017 adasilva]
                     renderer_->SetLightVolumeBatchShaders(volumeBatch, cullCamera_, lightVolumeCommand_->vertexShaderName_,
                         lightVolumeCommand_->pixelShaderName_, lightVolumeCommand_->vertexShaderDefines_,
                         lightVolumeCommand_->pixelShaderDefines_);
@@ -1856,6 +1869,7 @@ bool View::SetTextures(RenderPathCommand& command)
 
 void View::RenderQuad(RenderPathCommand& command)
 {
+    // ... [5/24/2017 adasilva]
     if (command.vertexShaderName_.Empty() || command.pixelShaderName_.Empty())
         return;
 
@@ -1906,6 +1920,7 @@ void View::RenderQuad(RenderPathCommand& command)
     graphics_->SetDepthTest(CMP_ALWAYS);
     graphics_->SetDepthWrite(false);
     graphics_->SetFillMode(FILL_SOLID);
+	//graphics_->SetPrimitiveType(TRIANGLE_LIST);
     graphics_->SetLineAntiAlias(false);
     graphics_->SetClipPlane(false);
     graphics_->SetScissorTest(false);
@@ -2136,6 +2151,7 @@ void View::BlitFramebuffer(Texture* source, RenderSurface* destination, bool dep
     graphics_->SetDepthTest(CMP_ALWAYS);
     graphics_->SetDepthWrite(depthWrite);
     graphics_->SetFillMode(FILL_SOLID);
+	//graphics_->SetPrimitiveType(TRIANGLE_LIST);
     graphics_->SetLineAntiAlias(false);
     graphics_->SetClipPlane(false);
     graphics_->SetScissorTest(false);
@@ -2891,13 +2907,26 @@ void View::SetQueueShaderDefines(BatchQueue& queue, const RenderPathCommand& com
 {
     String vsDefines = command.vertexShaderDefines_.Trimmed();
     String psDefines = command.pixelShaderDefines_.Trimmed();
-    if (vsDefines.Length() || psDefines.Length())
+    String gsDefines = command.geometryShaderDefines_.Trimmed();
+    String hsDefines = command.hullShaderDefines_.Trimmed();
+    String dsDefines = command.domainShaderDefines_.Trimmed();
+    String csDefines = command.computeShaderDefines_.Trimmed();
+    if (vsDefines.Length() || psDefines.Length() || gsDefines.Length() || hsDefines.Length() || dsDefines.Length() || csDefines.Length())
     {
         queue.hasExtraDefines_ = true;
         queue.vsExtraDefines_ = vsDefines;
         queue.psExtraDefines_ = psDefines;
+        queue.gsExtraDefines_ = gsDefines;
+        queue.hsExtraDefines_ = hsDefines;
+        queue.dsExtraDefines_ = dsDefines;
+        queue.csExtraDefines_ = csDefines;
+
         queue.vsExtraDefinesHash_ = StringHash(vsDefines);
         queue.psExtraDefinesHash_ = StringHash(psDefines);
+        queue.gsExtraDefinesHash_ = StringHash(gsDefines);
+        queue.hsExtraDefinesHash_ = StringHash(hsDefines);
+        queue.dsExtraDefinesHash_ = StringHash(dsDefines);
+        queue.csExtraDefinesHash_ = StringHash(csDefines);
     }
     else
         queue.hasExtraDefines_ = false;
@@ -3020,6 +3049,7 @@ void View::SetupLightVolumeBatch(Batch& batch)
     graphics_->SetDepthBias(0.0f, 0.0f);
     graphics_->SetDepthWrite(false);
     graphics_->SetFillMode(FILL_SOLID);
+	//graphics_->SetPrimitiveType(TRIANGLE_LIST);
     graphics_->SetLineAntiAlias(false);
     graphics_->SetClipPlane(false);
 
@@ -3073,6 +3103,7 @@ void View::RenderShadowMap(const LightBatchQueue& queue)
     graphics_->SetTexture(TU_SHADOWMAP, 0);
 
     graphics_->SetFillMode(FILL_SOLID);
+    //graphics_->SetPrimitiveType(TRIANGLE_LIST);
     graphics_->SetClipPlane(false);
     graphics_->SetStencilTest(false);
 

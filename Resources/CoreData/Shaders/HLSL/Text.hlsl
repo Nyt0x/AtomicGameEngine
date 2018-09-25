@@ -23,18 +23,32 @@ cbuffer CustomPS : register(b6)
 
 #endif
 
-void VS(float4 iPos : POSITION,
-    float2 iTexCoord : TEXCOORD0,
-    out float2 oTexCoord : TEXCOORD0,
-    float4 iColor : COLOR0,
-    out float4 oColor : COLOR0,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+    float2 TexCoord : TEXCOORD0;
+    float4 Color : COLOR0;
+};
+
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
+    float4 Color : COLOR0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oColor = iColor;
-    oTexCoord = iTexCoord;
+    Out.Pos = GetClipPos(worldPos);
+    Out.Color = In.Color;
+    Out.TexCoord = In.TexCoord;
 }
 
 // See notes in GLSL shader
@@ -49,30 +63,28 @@ void VS(float4 iPos : POSITION,
 #endif
 
 
-void PS(float2 iTexCoord : TEXCOORD0,
-    float4 iColor : COLOR0,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
 #ifdef SIGNED_DISTANCE_FIELD
-    oColor.rgb = iColor.rgb;
-    float distance = Sample2D(DiffMap, iTexCoord).a;
+    Out.Color.rgb = In.Color.rgb;
+    float distance = Sample2D(DiffMap, In.TexCoord).a;
 
     #ifdef TEXT_EFFECT_STROKE
         #ifdef SUPERSAMPLING
             float outlineFactor = smoothstep(0.5, 0.525, distance); // Border of glyph
-            oColor.rgb = lerp(cStrokeColor.rgb, iColor.rgb, outlineFactor);
+            Out.Color.rgb = lerp(cStrokeColor.rgb, In.Color.rgb, outlineFactor);
         #else
             if (distance < 0.525)
-                oColor.rgb = cStrokeColor.rgb;
+                Out.Color.rgb = cStrokeColor.rgb;
         #endif
     #endif
 
     #ifdef TEXT_EFFECT_SHADOW
-        if (Sample2D(DiffMap, iTexCoord - cShadowOffset).a > 0.5 && distance <= 0.5)
-            oColor = cShadowColor;
+        if (Sample2D(DiffMap, In.TexCoord - cShadowOffset).a > 0.5 && distance <= 0.5)
+            Out.Color = cShadowColor;
         #ifndef SUPERSAMPLING
         else if (distance <= 0.5)
-            oColor.a = 0.0;
+            Out.Color.a = 0.0;
         #endif
         else
     #endif
@@ -81,8 +93,8 @@ void PS(float2 iTexCoord : TEXCOORD0,
             float alpha = GetAlpha(distance, width);
 
             #ifdef SUPERSAMPLING
-                float2 deltaUV = 0.354 * fwidth(iTexCoord); // (1.0 / sqrt(2.0)) / 2.0 = 0.354
-                float4 square = float4(iTexCoord - deltaUV, iTexCoord + deltaUV);
+                float2 deltaUV = 0.354 * fwidth(In.TexCoord); // (1.0 / sqrt(2.0)) / 2.0 = 0.354
+                float4 square = float4(In.TexCoord - deltaUV, In.TexCoord + deltaUV);
 
                 float distance2 = Sample2D(DiffMap, square.xy).a;
                 float distance3 = Sample2D(DiffMap, square.zw).a;
@@ -99,14 +111,14 @@ void PS(float2 iTexCoord : TEXCOORD0,
                 alpha = alpha * 0.25;
             #endif
 
-            oColor.a = alpha;
+            Out.Color.a = alpha;
         }
 #else
     #ifdef ALPHAMAP
-        oColor.rgb = iColor.rgb;
-        oColor.a = iColor.a * Sample2D(DiffMap, iTexCoord).a;
+        Out.Color.rgb = In.Color.rgb;
+        Out.Color.a = In.Color.a * Sample2D(DiffMap, In.TexCoord).a;
     #else
-        oColor = iColor* Sample2D(DiffMap, iTexCoord);
+        Out.Color = In.Color* Sample2D(DiffMap, In.TexCoord);
     #endif
 #endif
 }

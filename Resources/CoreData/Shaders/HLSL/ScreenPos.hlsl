@@ -1,4 +1,4 @@
-#ifdef COMPILEVS
+#if defined(COMPILEVS) || defined(COMPILEGS) || defined(COMPILEDS)
 float3x3 GetCameraRot()
 {
     return float3x3(cViewInv[0][0], cViewInv[0][1], cViewInv[0][2],

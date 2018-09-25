@@ -59,8 +59,14 @@ GraphicsImpl::GraphicsImpl() :
 
     for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
     {
-        constantBuffers_[VS][i] = 0;
-        constantBuffers_[PS][i] = 0;
+        constantBuffers_[ShaderType::VS][i] = 0;
+        constantBuffers_[ShaderType::PS][i] = 0;
+#ifdef DESKTOP_GRAPHICS
+        constantBuffers_[ShaderType::GS][i] = 0;
+        constantBuffers_[ShaderType::HS][i] = 0;
+        constantBuffers_[ShaderType::DS][i] = 0;
+        constantBuffers_[ShaderType::CS][i] = 0;
+#endif
     }
 }
 

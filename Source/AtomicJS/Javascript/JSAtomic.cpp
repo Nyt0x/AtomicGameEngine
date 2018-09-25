@@ -64,6 +64,7 @@
 
 #include <Atomic/Scene/Scene.h>
 #include <Atomic/Environment/ProcSky.h>
+#include <Atomic/Environment/Ocean.h>
 
 namespace Atomic
 {

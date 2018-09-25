@@ -381,7 +381,7 @@ bool Texture2D::Create()
     textureDesc.Format = (DXGI_FORMAT)(sRGB_ ? GetSRGBFormat(format_) : format_);
 
     // Disable multisampling if not supported
-    if (multiSample_ > 1 && !graphics_->GetImpl()->CheckMultiSampleSupport(textureDesc.Format, multiSample_))
+    //if (multiSample_ > 1 && !graphics_->GetImpl()->CheckMultiSampleSupport(textureDesc.Format, multiSample_))
     {
         multiSample_ = 1;
         autoResolve_ = false;

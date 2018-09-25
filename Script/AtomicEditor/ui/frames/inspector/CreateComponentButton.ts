@@ -53,6 +53,12 @@ geometryCreateSource.addItem(new Atomic.UIMenuItem("Terrain", "Terrain"));
 geometryCreateSource.addItem(new Atomic.UIMenuItem("Text3D", "create component"));
 geometryCreateSource.addItem(new Atomic.UIMenuItem("Water", "Water"));
 
+var environmentCreateSource = new Atomic.UIMenuItemSource();
+
+environmentCreateSource.addItem(new Atomic.UIMenuItem("ProcSky", "ProcSky"));
+environmentCreateSource.addItem(new Atomic.UIMenuItem("TimeOfDay", "TimeOfDay"));
+environmentCreateSource.addItem(new Atomic.UIMenuItem("Ocean", "Ocean"));
+
 var logicCreateSource = new Atomic.UIMenuItemSource();
 
 logicCreateSource.addItem(new Atomic.UIMenuItem("JSComponent", "JSComponent"));
@@ -104,6 +110,7 @@ var sources = {
     Audio: audioCreateSource,
     "2D": _2DCreateSource,
     Geometry: geometryCreateSource,
+    Environment: environmentCreateSource,
     Logic: logicCreateSource,
     Navigation: navigationCreateSource,
     Network: networkCreateSource,

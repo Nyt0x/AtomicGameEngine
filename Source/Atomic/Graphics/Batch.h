@@ -52,7 +52,13 @@ struct Batch
     /// Construct with defaults.
     Batch() :
         isBase_(false),
-        lightQueue_(0)
+        lightQueue_(0),
+        vertexShader_(0),
+        pixelShader_(0),
+        geometryShader_(0),
+        hullShader_(0),
+        domainShader_(0),
+        computeShader_(0)
     {
     }
 
@@ -67,7 +73,13 @@ struct Batch
         numWorldTransforms_(rhs.numWorldTransforms_),
         instancingData_(rhs.instancingData_),
         lightQueue_(0),
-        geometryType_(rhs.geometryType_)
+        geometryType_(rhs.geometryType_),
+        vertexShader_(0),
+        pixelShader_(0),
+        geometryShader_(0),
+        hullShader_(0),
+        domainShader_(0),
+        computeShader_(0)
     {
     }
 
@@ -108,6 +120,14 @@ struct Batch
     ShaderVariation* vertexShader_;
     /// Pixel shader.
     ShaderVariation* pixelShader_;
+    /// Geometry shader.
+    ShaderVariation* geometryShader_;
+    /// Hull shader.
+    ShaderVariation* hullShader_;
+    /// Domain shader.
+    ShaderVariation* domainShader_;
+    /// Compute shader.
+    ShaderVariation* computeShader_;
     /// %Geometry type.
     GeometryType geometryType_;
 };
@@ -277,10 +297,26 @@ public:
     String vsExtraDefines_;
     /// Pixel shader extra defines.
     String psExtraDefines_;
+    /// Geometry shader extra defines.
+    String gsExtraDefines_;
+    /// Hull shader extra defines.
+    String hsExtraDefines_;
+    /// Domain shader extra defines.
+    String dsExtraDefines_;
+    /// Compute shader extra defines.
+    String csExtraDefines_;
     /// Hash for vertex shader extra defines.
     StringHash vsExtraDefinesHash_;
     /// Hash for pixel shader extra defines.
     StringHash psExtraDefinesHash_;
+    /// Hash for geometry shader extra defines.
+    StringHash gsExtraDefinesHash_;
+    /// Hash for hull shader extra defines.
+    StringHash hsExtraDefinesHash_;
+    /// Hash for domain shader extra defines.
+    StringHash dsExtraDefinesHash_;
+    /// Hash for compute shader extra defines.
+    StringHash csExtraDefinesHash_;
 };
 
 /// Queue for shadow map draw calls

@@ -4,7 +4,9 @@
 #include "ScreenPos.hlsl"
 #include "Lighting.hlsl"
 #include "Fog.hlsl"
+#include "SSR.hlsl"
 
+#line 9
 #ifndef D3D11
 
 // D3D9 uniforms
@@ -19,6 +21,7 @@ uniform float cFoamTreshold;
 uniform float3 cShallowColor;
 uniform float3 cDeepColor;
 uniform float cDepthScale;
+uniform float cDefaultPlaneElevationWorld;
 
 #else
 
@@ -28,6 +31,7 @@ cbuffer CustomVS : register(b6)
 {
     float2 cNoiseSpeed;
     float cNoiseTiling;
+    float cDefaultPlaneElevationWorld;
 }
 #else
 cbuffer CustomPS : register(b6)
@@ -46,119 +50,126 @@ cbuffer CustomPS : register(b6)
 
 #endif
 
-void VS(float4 iPos : POSITION,
-    float3 iNormal: NORMAL,
-    #if LIGHTING
-        float4 iTangent : TANGENT,
-    #endif
-    float2 iTexCoord : TEXCOORD0,
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-
-    #if LIGHTING
-        out float4 oWorldPos :TEXCOORD4,
-
-        #ifdef PERPIXEL
-            #ifdef SPOTLIGHT
-                out float4 oSpotPos : TEXCOORD5,
-            #endif
-            #ifdef POINTLIGHT
-                out float3 oCubeMaskVec : TEXCOORD5,
-            #endif
-        
-            out float4 oTangent : TEXCOORD0,
-            out float4 oTexCoord : TEXCOORD1,
-            out float4 oTexCoord2 : TEXCOORD2,
-        #endif
-    #else
-        out float4 oScreenPos : TEXCOORD0,
-        out float2 oReflectUV : TEXCOORD1,
-        out float2 oWaterUV : TEXCOORD2,
-        out float4 oEyeVec : TEXCOORD4,
-    #endif
-    out float3 oNormal : TEXCOORD3,
-    #if defined(D3D11) && defined(CLIPPLANE)
-        out float oClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
-    float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    float4 Pos : POSITION;
+    float3 Normal: NORMAL;
 
-    oNormal = GetWorldNormal(modelMatrix);
+#if LIGHTING
+    float4 Tangent : TANGENT;
+#endif
+
+    float2 TexCoord : TEXCOORD0;
+
+#ifdef INSTANCED
+    float4x3 ModelInstance : TEXCOORD4;
+#endif
+};
+
+struct PixelIn
+{
+#if LIGHTING
+    float4 WorldPos :TEXCOORD4;
+
+    #ifdef PERPIXEL
+        #ifdef SPOTLIGHT
+            float4 SpotPos : TEXCOORD5;
+        #endif
+        #ifdef POINTLIGHT
+            float3 CubeMaskVec : TEXCOORD5;
+        #endif
+    
+        float4 Tangent : TEXCOORD0;
+        float4 TexCoord : TEXCOORD1;
+        float4 TexCoord2 : TEXCOORD2;
+    #endif
+#else
+    float4 ScreenPos : TEXCOORD0;
+    float2 ReflectUV : TEXCOORD1;
+    float2 WaterUV : TEXCOORD2;
+    float4 EyeVec : TEXCOORD4;
+    float4 WorldPos : TEXCOORD5;
+    #if SSR
+        //float3 ViewPos : TEXCOORD5;
+        float3 CameraRay : TEXCOORD6;
+        float3 ViewNormal : TEXCOORD7;
+        //float3 EyePosition : TEXCOORD5;
+    #endif
+#endif
+    float3 Normal : TEXCOORD3;
+#if defined(D3D11) && defined(CLIPPLANE)
+    float Clip : SV_CLIPDISTANCE0;
+#endif
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
+    float3 worldPos = GetWorldPos(modelMatrix);
+    Out.Pos = GetClipPos(worldPos);
+
+    Out.Normal = GetWorldNormal(modelMatrix);
 
     #if LIGHTING
-        oWorldPos = float4(worldPos, GetDepth(oPos));
+        Out.WorldPos = float4(worldPos, GetDepth(Out.Pos));
 
         #ifdef PERPIXEL
             // Per-pixel forward lighting
             float4 projWorldPos = float4(worldPos, 1.0);
                 
             float3 tangent = GetWorldTangent(modelMatrix);
-            float3 bitangent = cross(tangent, oNormal) * iTangent.w;
-            oTexCoord = float4(GetTexCoord(iTexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed), bitangent.xy);
-            oTexCoord2 = float4(GetTexCoord(iTexCoord.yx * cNoiseTiling - cElapsedTime * cNoiseSpeed), bitangent.xy);
-            oTangent = float4(tangent, bitangent.z);
+            float3 bitangent = cross(tangent, Out.Normal) * In.Tangent.w;
+            Out.TexCoord = float4(GetTexCoord(In.TexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed), bitangent.xy);
+            Out.TexCoord2 = float4(GetTexCoord(In.TexCoord.yx * cNoiseTiling - cElapsedTime * cNoiseSpeed), bitangent.xy);
+            Out.Tangent = float4(tangent, bitangent.z);
         
             #ifdef SPOTLIGHT
                 // Spotlight projection: transform from world space to projector texture coordinates
-                oSpotPos = mul(projWorldPos, cLightMatrices[0]);
+                Out.SpotPos = mul(projWorldPos, cLightMatrices[0]);
             #endif
         
             #ifdef POINTLIGHT
-                oCubeMaskVec = mul(worldPos - cLightPos.xyz, (float3x3)cLightMatrices[0]);
+                Out.CubeMaskVec = mul(worldPos - cLightPos.xyz, (float3x3)cLightMatrices[0]);
             #endif
         #endif
     #else
-        oScreenPos = GetScreenPos(oPos);
-        oEyeVec = float4(cCameraPos - worldPos, GetDepth(oPos));
+        Out.ScreenPos = GetScreenPos(Out.Pos);
+        Out.EyeVec = float4(cCameraPos - worldPos, GetDepth(Out.Pos));
         // GetQuadTexCoord() returns a float2 that is OK for quad rendering; multiply it with output W
         // coordinate to make it work with arbitrary meshes such as the water plane (perform divide in pixel shader)
-        oReflectUV = GetQuadTexCoord(oPos) * oPos.w;
-        oWaterUV = iTexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed;
+        Out.ReflectUV = GetQuadTexCoord(Out.Pos) * Out.Pos.w;
+        Out.WaterUV = In.TexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed;
+        Out.WorldPos = float4(worldPos, max(worldPos.y - cDefaultPlaneElevationWorld, 0.0)); 
+        #if SSR
+            //float4 cameraRay = float4( In.TexCoord * 2.0 - 1.0, 1.0, 1.0);
+            //cameraRay = mul(cameraRay, cProjInv);
+            //Out.CameraRay = cameraRay.xyz / cameraRay.w;
+            //Out.ViewPos = mul(worldPos, cView); 
+            //Out.ViewNormal = mul(mul(In.Normal, (float3x3)modelMatrix), cView);
+            Out.CameraRay = mul(GetWorldPos(modelMatrix) - cCameraPos, cView);
+            Out.ViewNormal = mul(GetWorldNormal(modelMatrix), cView);
+        #endif
     #endif
 
     #if defined(D3D11) && defined(CLIPPLANE)
-        oClip = dot(oPos, cClipPlane);
+        Out.Clip = dot(Out.Pos, cClipPlane);
     #endif
 }
 
-void PS(
-    #if LIGHTING
-        float4 iWorldPos : TEXCOORD4,
-
-        #ifdef PERPIXEL
-            #ifdef SPOTLIGHT
-                float4 iSpotPos : TEXCOORD5,
-            #endif
-            #ifdef POINTLIGHT
-                float3 iCubeMaskVec : TEXCOORD5,
-            #endif
-        
-            float4 iTangent : TEXCOORD0,
-            float4 iTexCoord : TEXCOORD1,
-            float4 iTexCoord2 : TEXCOORD2,
-        #endif
-    #else
-        float4 iScreenPos : TEXCOORD0,
-        float2 iReflectUV : TEXCOORD1,
-        float2 iWaterUV : TEXCOORD2,
-        float4 iEyeVec : TEXCOORD4,
-    #endif
-    float3 iNormal : TEXCOORD3,
-    #if defined(D3D11) && defined(CLIPPLANE)
-        float iClip : SV_CLIPDISTANCE0,
-    #endif
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
 #if LIGHTING
     #ifdef PERPIXEL
         #if defined(SPOTLIGHT)
-            float3 lightColor = iSpotPos.w > 0.0 ? Sample2DProj(LightSpotMap, iSpotPos).rgb * cLightColor.rgb : 0.0;
+            float3 lightColor = In.SpotPos.w > 0.0 ? Sample2DProj(LightSpotMap, In.SpotPos).rgb * cLightColor.rgb : 0.0;
         #elif defined(CUBEMASK)
-            float3 lightColor = SampleCube(LightCubeMap, iCubeMaskVec).rgb * cLightColor.rgb;
+            float3 lightColor = SampleCube(LightCubeMap, In.CubeMaskVec).rgb * cLightColor.rgb;
         #else
             float3 lightColor = cLightColor.rgb;
         #endif
@@ -166,42 +177,47 @@ void PS(
         #ifdef DIRLIGHT
             float3 lightDir = cLightDirPS;
         #else
-            float3 lightVec = (cLightPosPS.xyz - iWorldPos.xyz) * cLightPosPS.w;
+            float3 lightVec = (cLightPosPS.xyz - In.WorldPos.xyz) * cLightPosPS.w;
             float3 lightDir = normalize(lightVec);
         #endif
         
-        float3x3 tbn = float3x3(iTangent.xyz, float3(iTexCoord.zw, iTangent.w), iNormal);
-        float3 normal = normalize(mul(DecodeNormal(Sample2D(SpecMap, iTexCoord.xy)), tbn)); //Those are normals but I had to use the unit3 to store the normals
-        float3 normal2 = normalize(mul(DecodeNormal(Sample2D(SpecMap, iTexCoord2.xy)), tbn));
+        float3x3 tbn = float3x3(In.Tangent.xyz, float3(In.TexCoord.zw, In.Tangent.w), In.Normal);
+        float3 normal = normalize(mul(DecodeNormal(Sample2D(SpecMap, In.TexCoord.xy)), tbn)); //Those are normals but I had to use the unit3 to store the normals
+        float3 normal2 = normalize(mul(DecodeNormal(Sample2D(SpecMap, In.TexCoord2.xy)), tbn));
         normal = normalize(normal + normal2);
         
         #ifdef HEIGHTFOG
-            float fogFactor = GetHeightFogFactor(iWorldPos.w, iWorldPos.y);
+            float fogFactor = GetHeightFogFactor(In.WorldPos.w, In.WorldPos.y);
         #else
-            float fogFactor = GetFogFactor(iWorldPos.w);
+            float fogFactor = GetFogFactor(In.WorldPos.w);
         #endif
         
         //Not sure about that
-        float3 spec = GetSpecular(normal, cCameraPosPS - iWorldPos.xyz, lightDir, 200.0) * lightColor * cLightColor.a;
+        float3 spec = GetSpecular(normal, cCameraPosPS - In.WorldPos.xyz, lightDir, 200.0) * lightColor * cLightColor.a;
         
-        oColor = float4(GetLitFog(spec, fogFactor), 1.0);
+        Out.Color = float4(GetLitFog(spec, fogFactor), 1.0);
     #endif
 #else
         //Get reflect and refract UV
-        float2 refractUV = iScreenPos.xy / iScreenPos.w;
-        //float2 reflectUV = iReflectUV.xy / iScreenPos.w;
+        float2 refractUV = In.ScreenPos.xy / In.ScreenPos.w;
+        //float2 reflectUV = In.ReflectUV.xy / In.ScreenPos.w;
     
         //Store refract UV before applying noise
         float2 noiseLessRefractUV = refractUV;
     
-        float3 noise = (Sample2D(SpecMap, iWaterUV).rgb - 0.5);
+        float3 noise = (Sample2D(SpecMap, In.WaterUV).rgb - 0.5);
         refractUV += noise.rg * cRefractNoiseStrength;
     
         //Do not shift reflect UV coordinate upward, because it will reveal the clipping of geometry below water
         if (noise.y < 0.0)
             noise.y = 0.0;
         //reflectUV += noise;
-        float3 reflectDir = reflect(-iEyeVec.xyz, iNormal);
+        //float3 reflectDir = reflect(normalize(In.ViewPos), In.ViewNormal);
+        //convert from eye to world
+        //reflectDir = mul(reflectDir, cViewInvPS);
+        //float3 reflectDir = reflect(-In.EyeVec.xyz, In.Normal);
+        //float3 reflectDir = reflect(normalize(In.CameraRay), In.Normal);
+        float3 reflectDir = mul(reflect(normalize(In.CameraRay), normalize(In.ViewNormal)), cViewInvPS);
         reflectDir += noise * cReflectNoiseStrength;
     
         //float2 reflectDirUV = ;
@@ -220,26 +236,143 @@ void PS(
         depth = lerp(depth , depthOriginal, depth < depthOriginal);
     
         //Calculate water depth
-        float3 waterDepth = (depth - iEyeVec.w) * (cFarClipPS - cNearClipPS);
+        float waterDepth = (depth - In.EyeVec.w) * (cFarClipPS - cNearClipPS);
+        
+        //Calculate original water depth
+        float originalWaterDepth = (depthOriginal - In.EyeVec.w) * (cFarClipPS - cNearClipPS);
     
         //Calculate fresnel component
-        half facing = (1.0 - dot(normalize(iEyeVec.xyz), iNormal));
+        half facing = (1.0 - dot(normalize(In.EyeVec.xyz), In.Normal));
         float fresnel = max(cFresnelBias + (1.0 - cFresnelBias) * pow(facing, cFresnelPower), 0.0);
-    
-        float steepness = 1.0 - dot(float3(0.0,1.0,0.0), normalize(DecodeNormal(Sample2D(NormalMap, noiseLessRefractUV))));
+
+        float3 decodedNormal = DecodeNormal(Sample2D(NormalMap, noiseLessRefractUV));
+        float steepness = 1.0 - dot(float3(0.0,1.0,0.0), normalize(decodedNormal));
     
         float3 refractColor = Sample2D(EnvMap, refractUV).rgb;
-        //float3 reflectColor = Sample2D(EnvMap, reflectUV).rgb;   
-        float3 reflectColor = SampleCube(DiffCubeMap, reflectDir);   
+
+        float3 reflectColor;
+        
+        //Parallax-correction code
+        float3 ReflDirectionWS = reflectDir;
+        //// Following is the parallax-correction code
+        //// Find the ray intersection with box plane
+        //float3 FirstPlaneIntersect = (cZoneMax - In.WorldPos) / ReflDirectionWS;
+        //float3 SecondPlaneIntersect = (cZoneMin - In.WorldPos) / ReflDirectionWS;
+        //// Get the furthest of these intersections along the ray
+        //// (Ok because x/0 give +inf and -x/0 give –inf )
+        //float3 FurthestPlane = max(FirstPlaneIntersect, SecondPlaneIntersect);
+        //// Find the closest far intersection
+        //float Distance = min(min(FurthestPlane.x, FurthestPlane.y), FurthestPlane.z);
+        //
+        //// Get the intersection position
+        //float3 IntersectPositionWS = In.WorldPos + ReflDirectionWS * Distance;
+        //// Get corrected reflection
+        //ReflDirectionWS = IntersectPositionWS - cZonePositionWS;
+        // End parallax-correction code
+//SSR or fallback
+    #ifdef SSR
+        //float3 vsRayOrigin = mul(In.CameraRay.xyz, cViewPS);
+        //float3 vsRayOrigin =  mul(-In.EyeVec.xyz, cViewPS);//ScreenSpaceToViewSpace(-In.EyeVec.xyz, depthOriginal);
+        //float3 vsRayOrigin = In.CameraRay * iEyeVec.w;//ScreenSpaceToViewSpace(In.CameraRay, In.EyeVec.w);
+        float3 vsRayOrigin = In.CameraRay;
     
-        float3 waterColor = lerp(cShallowColor, cDeepColor, clamp(waterDepth * cDepthScale, 0.0, 1.0));
+        //float3 vsRayDirection = normalize(mul(reflectDir.xyz, cViewPS));//normalize( reflect( normalize(vsRayOrigin), mul(In.Normal, cViewPS)));
+        //float3 vsRayDirection = normalize( reflect( normalize(vsRayOrigin), mul(In.Normal, cViewPS)));
+        //float3 vsRayDirection = normalize( reflect( normalize(vsRayOrigin), In.ViewNormal));
+        float3 vsRayDirection = reflect(normalize(In.CameraRay), normalize(In.ViewNormal));
+        
+        float2 hitPixel = float2(0.0f, 0.0f); 
+        float3 hitPoint = float3(0.0f, 0.0f, 0.0f);
+
+        //float2 uv2 = noiseLessRefractUV * cRenderBufferSize;
+        //float c = (uv2.x + uv2.y) * 0.25;
+        //float jitter = fmod( c, 1.0);
+        
+        float stride = 1.0; //tbd by user
+        float jitter = stride > 1.0f ? float(int(noiseLessRefractUV.x + noiseLessRefractUV.y) & 1) * 0.5f : 0.0f;
+        
+        float zThickness = 1.0; //use double depth ?
+        
+        float pixelStrideZCuttoff = 0.0f;//(cFarClipPS - cNearClipPS) * 0.5;
+        const float numberIterations = 500.0;
+        float maxDistance = 5000.0;//(cFarClipPS - cNearClipPS);
+        
+        bool intersect = traceScreenSpaceRay(vsRayOrigin,
+                                             vsRayDirection,
+                                             jitter,
+                                             maxDistance,
+                                             pixelStrideZCuttoff,
+                                             stride,
+                                             numberIterations,
+                                             hitPixel,
+                                             hitPoint);
+
+        //float2 oneDividedByRenderBufferSize = 1.0 /cRenderBufferSize;
+        //bool intersect = traceScreenSpaceRay( vsRayOrigin,
+        //                                       vsRayDirection,
+        //                                       maxDistance,
+        //                                       stride,
+        //                                       pixelStrideZCuttoff,
+        //                                       jitter,
+        //                                       numberIterations,
+        //                                       oneDividedByRenderBufferSize,
+        //                                       hitPixel,
+        //                                       hitPoint,
+        //                                       iterationCount,
+        //                                       i.uv.x > 0.5);
+        
+        //bool intersect = traceScreenSpaceRay1(vsRayOrigin,
+        //                                      vsRayDirection,
+        //                                      zThickness,
+        //                                      stride,
+        //                                      jitter,
+        //                                      numberIterations,
+        //                                      pixelStrideZCuttoff,
+        //                                      hitPixel,
+        //                                      hitPoint);
+        float2 reflectUV = (hitPixel / 2.0  * cGBufferInvSize) + float2(0.5,0.0);
+        
+        if(reflectUV.x > 1.0 || reflectUV.x < 0.0 || reflectUV.y > 1.0 || reflectUV.y < 0.0)
+        {
+            intersect = false;
+        }
+        
+        //if(intersect)
+        //{
+        //    
+        //    //reflectColor = lerp(Sample2D(EnvMap, reflectUV).rgb , SampleCube(DiffCubeMap, reflectDir).rgb, hitPoint.z > vsRayOrigin.z);
+        //    //float alpha = calculateAlphaForIntersection( intersect, iterationCount, specularStrength, hitPixel, hitPoint, vsRayOrigin, vsRayDirection);
+        //    //reflectColor = float3(1.0,0.0,0.0);
+        //    //reflectColor = Sample2D(EnvMap, reflectUV).rgb;
+        //    float3 ssrReflectColor = Sample2D(EnvMap, reflectUV).rgb;
+        //    //reflectColor = SampleCube(DiffCubeMap, reflectDir);
+        //    
+        //    float3 cubemapReflectColor = SampleCube(ZoneCubeMap, ReflDirectionWS);
+        //    
+        //    reflectColor = lerp(ssrReflectColor, cubemapReflectColor, 0.5f);
+        //}
+        //else
+        {
+            //reflectColor = SampleCube(DiffCubeMap, reflectDir);
+            reflectColor = SampleCube(ZoneCubeMap, ReflDirectionWS);
+            //reflectColor = SampleCube(ZoneCubeMap, reflectDir);
+        }
+    #else
+        //reflectColor = SampleCube(DiffCubeMap, reflectDir);
+        reflectColor = SampleCube(ZoneCubeMap, ReflDirectionWS);
+        //reflectColor = SampleCube(ZoneCubeMap, reflectDir);
+    #endif
     
-        refractColor *= waterColor;
+    float3 waterColor = lerp(cShallowColor, cDeepColor, clamp(waterDepth * cDepthScale, 0.0, 1.0));
     
-        float3 finalColor = lerp(refractColor, reflectColor, fresnel);
+    refractColor *= waterColor;
     
-        finalColor = lerp(cFoamColor, finalColor, clamp(saturate((waterDepth + (noise.x * 0.1)) / cFoamTreshold) + steepness, 0.5, 1.0));
+    float3 finalColor = lerp(refractColor, reflectColor, fresnel);
     
-        oColor = float4(GetFog(finalColor, GetFogFactor(iEyeVec.w)), 1.0 );
+    finalColor = lerp(finalColor, cFoamColor, saturate(In.WorldPos.w / cFoamTreshold));
+    finalColor = lerp(cFoamColor, finalColor, saturate((originalWaterDepth + (noise.x * 0.1)) / cFoamTreshold) + steepness);
+   
+    Out.Color = float4(GetFog(finalColor, GetFogFactor(In.EyeVec.w)), GetSoftParticleAlpha(originalWaterDepth * cDepthScale, 1.0 ));
+    //Out.Color = float4(GetFog(reflectColor, GetFogFactor(In.EyeVec.w)), 1.0 );
 #endif
 }

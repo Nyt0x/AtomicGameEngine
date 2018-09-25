@@ -2,27 +2,40 @@
 #include "Samplers.hlsl"
 #include "Transform.hlsl"
 
-void VS(float4 iPos : POSITION,
-    #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
-    #endif
-    out float3 oTexCoord : TEXCOORD0,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
-    float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    float4 Pos : POSITION;
+#ifdef INSTANCED
+    float4x3 ModelInstance : TEXCOORD4;
+#endif
+};
 
-    oPos.z = oPos.w;
-    oTexCoord = iPos.xyz;
+struct PixelIn
+{
+    float3 TexCoord : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
+    float3 worldPos = GetWorldPos(modelMatrix);
+    Out.Pos = GetClipPos(worldPos);
+
+    Out.Pos.z = Out.Pos.w;
+    Out.TexCoord = In.Pos.xyz;
 }
 
-void PS(float3 iTexCoord : TEXCOORD0,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
-    float4 sky = cMatDiffColor * SampleCube(DiffCubeMap, iTexCoord);
+    float4 sky = cMatDiffColor * SampleCube(DiffCubeMap, In.TexCoord);
     #ifdef HDRSCALE
         sky = pow(sky + clamp((cAmbientColor.a - 1.0) * 0.1, 0.0, 0.25), max(cAmbientColor.a, 1.0)) * clamp(cAmbientColor.a, 0.0, 1.0);
     #endif
-    oColor = sky;
+    Out.Color = sky;
 }

@@ -96,8 +96,17 @@ bool Shader::BeginLoad(Deserializer& source)
     // Comment out the unneeded shader function
     vsSourceCode_ = shaderCode;
     psSourceCode_ = shaderCode;
+    gsSourceCode_ = shaderCode;
+    hsSourceCode_ = shaderCode;
+    dsSourceCode_ = shaderCode;
+    csSourceCode_ = shaderCode;
+
     CommentOutFunction(vsSourceCode_, "void PS(");
     CommentOutFunction(psSourceCode_, "void VS(");
+    CommentOutFunction(gsSourceCode_, "void GS(");
+    CommentOutFunction(hsSourceCode_, "void HS(");
+    CommentOutFunction(dsSourceCode_, "void DS(");
+    CommentOutFunction(csSourceCode_, "void CS(");
 
     // OpenGL: rename either VS() or PS() to main()
 #ifdef ATOMIC_OPENGL
@@ -116,6 +125,14 @@ bool Shader::EndLoad()
         i->second_->Release();
     for (HashMap<StringHash, SharedPtr<ShaderVariation> >::Iterator i = psVariations_.Begin(); i != psVariations_.End(); ++i)
         i->second_->Release();
+    for (HashMap<StringHash, SharedPtr<ShaderVariation> >::Iterator i = gsVariations_.Begin(); i != gsVariations_.End(); ++i)
+        i->second_->Release();
+    for (HashMap<StringHash, SharedPtr<ShaderVariation> >::Iterator i = hsVariations_.Begin(); i != hsVariations_.End(); ++i)
+        i->second_->Release();
+    for (HashMap<StringHash, SharedPtr<ShaderVariation> >::Iterator i = dsVariations_.Begin(); i != dsVariations_.End(); ++i)
+        i->second_->Release();
+    for (HashMap<StringHash, SharedPtr<ShaderVariation> >::Iterator i = csVariations_.Begin(); i != csVariations_.End(); ++i)
+        i->second_->Release();
 
     return true;
 }
@@ -128,7 +145,8 @@ ShaderVariation* Shader::GetVariation(ShaderType type, const String& defines)
 ShaderVariation* Shader::GetVariation(ShaderType type, const char* defines)
 {
     StringHash definesHash(defines);
-    HashMap<StringHash, SharedPtr<ShaderVariation> >& variations(type == VS ? vsVariations_ : psVariations_);
+    
+    HashMap<StringHash, SharedPtr<ShaderVariation> >& variations(GetVariationMapFromType(type));
     HashMap<StringHash, SharedPtr<ShaderVariation> >::Iterator i = variations.Find(definesHash);
     if (i == variations.End())
     {
@@ -215,7 +233,14 @@ String Shader::NormalizeDefines(const String& defines)
 void Shader::RefreshMemoryUse()
 {
     SetMemoryUse(
-        (unsigned)(sizeof(Shader) + vsSourceCode_.Length() + psSourceCode_.Length() + numVariations_ * sizeof(ShaderVariation)));
+        (unsigned)(sizeof(Shader) 
+            + vsSourceCode_.Length() 
+            + psSourceCode_.Length() 
+            + gsSourceCode_.Length()
+            + hsSourceCode_.Length()
+            + dsSourceCode_.Length()
+            + csSourceCode_.Length()
+            + numVariations_ * sizeof(ShaderVariation)));
 }
 
 }

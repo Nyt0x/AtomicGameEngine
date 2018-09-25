@@ -5,6 +5,6 @@ Also it's using the normal buffer from the G-buffer in deferred rendering,
 if you're using forward you might want to put a default black texture. 
 -->
 <technique vs="WaterHQ" ps="WaterHQ">
-    <pass name="refract" />
+    <pass name="refract" vsdefines="SSR" psdefines="SSR" depthwrite="true"  blend="alpha"/>
     <pass name="litalpha" vsdefines="LIGHTING" psdefines="LIGHTING" depthwrite="false" blend="addalpha" />
 </technique>

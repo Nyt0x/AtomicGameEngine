@@ -8,10 +8,12 @@
     <parameter name="RefractNoiseStrength" value="0.1" />
     <parameter name="ReflectNoiseStrength" value="0.2" />
     <parameter name="FresnelPower" value="8" />
-    <parameter name="FresnelBias" value="-0.25" />
+    <parameter name="FresnelBias" value="-0.8" />
     <parameter name="FoamColor" value="1.0 1.0 1.0" />
     <parameter name="FoamTreshold" value="5.0" />
     <parameter name="ShallowColor" value="0.9 0.95 1.0" />
-    <parameter name="DeepColor" value="0.4 0.6 0.8" />
+    <parameter name="DeepColor" value="0.2 0.3 0.4" />
     <parameter name="DepthScale" value="0.2" />
+    <parameter name="DefaultPlaneElevationWorld" value="0.0" />
+    <primitivesinput value="triangles list" />
 </material>

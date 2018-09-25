@@ -1,4 +1,4 @@
-#ifdef COMPILEVS
+#if defined(COMPILEVS) || defined(COMPILEGS) || defined(COMPILEDS)
 
 #ifdef D3D11
 #define OUTPOSITION SV_POSITION
@@ -106,35 +106,35 @@ float3 GetTrailNormal(float4 iPos, float3 iParentPos, float3 iForward)
 #endif
 
 #if defined(SKINNED)
-    #define iModelMatrix GetSkinMatrix(iBlendWeights, iBlendIndices)
+    #define ModelMatrix GetSkinMatrix(In.BlendWeights, In.BlendIndices);
 #elif defined(INSTANCED)
-    #define iModelMatrix iModelInstance
+    #define ModelMatrix In.ModelInstance
 #else
-    #define iModelMatrix cModel
+    #define ModelMatrix cModel
 #endif
 
 #if defined(BILLBOARD)
-    #define GetWorldPos(modelMatrix) GetBillboardPos(iPos, iSize, modelMatrix)
+    #define GetWorldPos(modelMatrix) GetBillboardPos(In.Pos, In.Size, modelMatrix)
 #elif defined(DIRBILLBOARD)
-    #define GetWorldPos(modelMatrix) GetBillboardPos(iPos, iSize, iNormal, modelMatrix)
+    #define GetWorldPos(modelMatrix) GetBillboardPos(In.Pos, In.Size, In.Normal, modelMatrix)
 #elif defined(TRAILFACECAM)
-    #define GetWorldPos(modelMatrix) GetTrailPos(iPos, iTangent.xyz, iTangent.w, modelMatrix)
+    #define GetWorldPos(modelMatrix) GetTrailPos(In.Pos, In.Tangent.xyz, In.Tangent.w, modelMatrix)
 #elif defined(TRAILBONE)
-    #define GetWorldPos(modelMatrix) GetTrailPos(iPos, iTangent.xyz, iTangent.w, modelMatrix)
+    #define GetWorldPos(modelMatrix) GetTrailPos(In.Pos, In.Tangent.xyz, In.Tangent.w, modelMatrix)
 #else
-    #define GetWorldPos(modelMatrix) mul(iPos, modelMatrix)
+    #define GetWorldPos(modelMatrix) mul(In.Pos, modelMatrix)
 #endif
 
 #if defined(BILLBOARD)
     #define GetWorldNormal(modelMatrix) GetBillboardNormal()
 #elif defined(DIRBILLBOARD)
-    #define GetWorldNormal(modelMatrix) GetBillboardNormal(iPos, iNormal, modelMatrix)
+    #define GetWorldNormal(modelMatrix) GetBillboardNormal(In.Pos, In.Normal, modelMatrix)
 #elif defined(TRAILFACECAM)
-    #define GetWorldNormal(modelMatrix) GetTrailNormal(iPos)
+    #define GetWorldNormal(modelMatrix) GetTrailNormal(In.Pos)
 #elif defined(TRAILBONE)
-    #define GetWorldNormal(modelMatrix) GetTrailNormal(iPos, iTangent.xyz, iNormal)
+    #define GetWorldNormal(modelMatrix) GetTrailNormal(In.Pos, In.Tangent.xyz, In.Normal)
 #else
-    #define GetWorldNormal(modelMatrix) normalize(mul(iNormal, (float3x3)modelMatrix))
+    #define GetWorldNormal(modelMatrix) normalize(mul(In.Normal, (float3x3)modelMatrix))
 #endif
 
 #if defined(BILLBOARD)
@@ -142,7 +142,7 @@ float3 GetTrailNormal(float4 iPos, float3 iParentPos, float3 iForward)
 #elif defined(DIRBILLBOARD)
     #define GetWorldTangent(modelMatrix) float4(normalize(mul(float3(1.0, 0.0, 0.0), (float3x3)modelMatrix)), 1.0)
 #else
-    #define GetWorldTangent(modelMatrix) float4(normalize(mul(iTangent.xyz, (float3x3)modelMatrix)), iTangent.w)
+    #define GetWorldTangent(modelMatrix) float4(normalize(mul(In.Tangent.xyz, (float3x3)modelMatrix)), In.Tangent.w)
 #endif
 
 #endif
@@ -154,6 +154,10 @@ float3 GetTrailNormal(float4 iPos, float3 iParentPos, float3 iForward)
 #define OUTCOLOR1 SV_TARGET1
 #define OUTCOLOR2 SV_TARGET2
 #define OUTCOLOR3 SV_TARGET3
+#define OUTCOLOR4 SV_TARGET4
+#define OUTCOLOR5 SV_TARGET5
+#define OUTCOLOR6 SV_TARGET6
+#define OUTCOLOR7 SV_TARGET7
 #else
 #define OUTCOLOR0 COLOR0
 #define OUTCOLOR1 COLOR1

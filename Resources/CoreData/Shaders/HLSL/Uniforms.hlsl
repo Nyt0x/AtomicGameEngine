@@ -67,6 +67,8 @@ uniform float3 cZoneMin;
 uniform float3 cZoneMax;
 uniform float cNearClipPS;
 uniform float cFarClipPS;
+uniform float cRenderBufferSize;
+uniform float4x4 cViewProjPS;
 uniform float4 cShadowCubeAdjust;
 uniform float4 cShadowDepthFade;
 uniform float2 cShadowIntensity;
@@ -82,7 +84,7 @@ uniform float2 cVSMShadowParams;
 
 // D3D11 uniforms (using constant buffers)
 
-#ifdef COMPILEVS
+#if defined(COMPILEVS) || defined(COMPILEGS) || defined(COMPILEDS) || defined(COMPILEHS)
 
 // Vertex shader uniforms
 cbuffer FrameVS : register(b0)
@@ -101,8 +103,11 @@ cbuffer CameraVS : register(b1)
     float4 cGBufferOffsets;
     float4x3 cView;
     float4x3 cViewInv;
+    float4x4 cProjInv;
     float4x4 cViewProj;
     float4 cClipPlane;
+    //tmp test for water
+    float cTessellationAmount;
 }
 
 cbuffer ZoneVS : register(b2)
@@ -144,6 +149,13 @@ cbuffer ObjectVS : register(b5)
 }
 #endif
 
+//#ifdef COMPILEHS
+////cbuffer TessellationBuffer : register(b0)
+////{
+////    float cTessellationAmount;
+////}
+//#endif
+
 #ifdef COMPILEPS
 
 // Pixel shader uniforms
@@ -160,6 +172,11 @@ cbuffer CameraPS : register(b1)
     float2 cGBufferInvSize;
     float cNearClipPS;
     float cFarClipPS;
+    float2 cRenderBufferSize;
+    float4x3 cViewPS;
+    float4x4 cProjPS;
+    float4x4 cViewProjPS;
+    float4x3 cViewInvPS;
 }
 
 cbuffer ZonePS : register(b2)
@@ -169,6 +186,7 @@ cbuffer ZonePS : register(b2)
     float3 cFogColor;
     float3 cZoneMin;
     float3 cZoneMax;
+    float3 cZonePositionWS;
 }
 
 cbuffer LightPS : register(b3)
@@ -201,6 +219,10 @@ cbuffer MaterialPS : register(b4)
         float cRoughness;
         float cMetallic;
     #endif
+
+    //#ifdef SSR
+    //    
+    //#endif
 }
 #endif
 

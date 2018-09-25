@@ -72,7 +72,28 @@ bool ShaderVariation::Create()
     // Check for up-to-date bytecode on disk
     String path, name, extension;
     SplitPath(owner_->GetName(), path, name, extension);
-    extension = type_ == VS ? ".vs4" : ".ps4";
+
+    switch (type_)
+    {
+    case VS:
+        extension = ".vs5";
+    	break;
+    case PS:
+        extension = ".ps5";
+        break;
+    case GS:
+        extension = ".gs5";
+        break;
+    case HS:
+        extension = ".hs5";
+        break;
+    case DS:
+        extension = ".ds5";
+        break;
+    case CS:
+        extension = ".cs5";
+        break;
+    }
 
     String binaryShaderName = graphics_->GetShaderCacheDir() + name + "_" + StringHash(defines_).ToString() + extension;
 
@@ -88,7 +109,10 @@ bool ShaderVariation::Create()
 
     // Then create shader from the bytecode
     ID3D11Device* device = graphics_->GetImpl()->GetDevice();
-    if (type_ == VS)
+
+    switch (type_)
+    {
+    case VS:
     {
         if (device && byteCode_.Size())
         {
@@ -101,8 +125,10 @@ bool ShaderVariation::Create()
         }
         else
             compilerOutput_ = "Could not create vertex shader, empty bytecode";
+
+        break;
     }
-    else
+    case PS:
     {
         if (device && byteCode_.Size())
         {
@@ -115,6 +141,73 @@ bool ShaderVariation::Create()
         }
         else
             compilerOutput_ = "Could not create pixel shader, empty bytecode";
+
+        break;
+    }
+    case GS:
+    {
+        if (device && byteCode_.Size())
+        {
+            HRESULT hr = device->CreateGeometryShader(&byteCode_[0], byteCode_.Size(), 0, (ID3D11GeometryShader**)&object_.ptr_);
+            if (FAILED(hr))
+            {
+                ATOMIC_SAFE_RELEASE(object_.ptr_);
+                compilerOutput_ = "Could not create geometry shader (HRESULT " + ToStringHex((unsigned)hr) + ")";
+            }
+        }
+        else
+            compilerOutput_ = "Could not create geometry shader, empty bytecode";
+
+        break;
+    }
+    case HS:
+    {
+        if (device && byteCode_.Size())
+        {
+            HRESULT hr = device->CreateHullShader(&byteCode_[0], byteCode_.Size(), 0, (ID3D11HullShader**)&object_.ptr_);
+            if (FAILED(hr))
+            {
+                ATOMIC_SAFE_RELEASE(object_.ptr_);
+                compilerOutput_ = "Could not create hull shader (HRESULT " + ToStringHex((unsigned)hr) + ")";
+            }
+        }
+        else
+            compilerOutput_ = "Could not create hull shader, empty bytecode";
+
+        break;
+    }
+    case DS:
+    {
+        if (device && byteCode_.Size())
+        {
+            HRESULT hr = device->CreateDomainShader(&byteCode_[0], byteCode_.Size(), 0, (ID3D11DomainShader**)&object_.ptr_);
+            if (FAILED(hr))
+            {
+                ATOMIC_SAFE_RELEASE(object_.ptr_);
+                compilerOutput_ = "Could not create domain shader (HRESULT " + ToStringHex((unsigned)hr) + ")";
+            }
+        }
+        else
+            compilerOutput_ = "Could not create domain shader, empty bytecode";
+
+        break;
+    }
+    case CS:
+    {
+        if (device && byteCode_.Size())
+        {
+            HRESULT hr = device->CreateComputeShader(&byteCode_[0], byteCode_.Size(), 0, (ID3D11ComputeShader**)&object_.ptr_);
+            if (FAILED(hr))
+            {
+                ATOMIC_SAFE_RELEASE(object_.ptr_);
+                compilerOutput_ = "Could not create compute shader (HRESULT " + ToStringHex((unsigned)hr) + ")";
+            }
+        }
+        else
+            compilerOutput_ = "Could not create compute shader, empty bytecode";
+
+        break;
+    }
     }
 
     return object_.ptr_ != 0;
@@ -129,15 +222,50 @@ void ShaderVariation::Release()
 
         graphics_->CleanupShaderPrograms(this);
 
-        if (type_ == VS)
+        switch (type_)
+        {
+        case VS:
         {
             if (graphics_->GetVertexShader() == this)
-                graphics_->SetShaders(0, 0);
+                graphics_->SetShaders(0, 0, 0, 0, 0, 0);
+
+            break;
         }
-        else
+        case PS:
         {
             if (graphics_->GetPixelShader() == this)
-                graphics_->SetShaders(0, 0);
+                graphics_->SetShaders(0, 0, 0, 0, 0, 0);
+
+            break;
+        }
+        case GS:
+        {
+            if (graphics_->GetGeometryShader() == this)
+                graphics_->SetShaders(0, 0, 0, 0, 0, 0);
+
+            break;
+        }
+        case HS:
+        {
+            if (graphics_->GetHullShader() == this)
+                graphics_->SetShaders(0, 0, 0, 0, 0, 0);
+
+            break;
+        }
+        case DS:
+        {
+            if (graphics_->GetDomainShader() == this)
+                graphics_->SetShaders(0, 0, 0, 0, 0, 0);
+
+            break;
+        }
+        case CS:
+        {
+            if (graphics_->GetComputeShader() == this)
+                graphics_->SetShaders(0, 0, 0, 0, 0, 0);
+
+            break;
+        }
         }
 
         ATOMIC_SAFE_RELEASE(object_.ptr_);
@@ -223,10 +351,39 @@ bool ShaderVariation::LoadByteCode(const String& binaryShaderName)
         byteCode_.Resize(byteCodeSize);
         file->Read(&byteCode_[0], byteCodeSize);
 
-        if (type_ == VS)
+        switch (type_)
+        {
+        case VS:
+        {
             ATOMIC_LOGDEBUG("Loaded cached vertex shader " + GetFullName());
-        else
+            break;
+        }
+        case PS:
+        {
             ATOMIC_LOGDEBUG("Loaded cached pixel shader " + GetFullName());
+            break;
+        }
+        case GS:
+        {
+            ATOMIC_LOGDEBUG("Loaded cached geometry shader " + GetFullName());
+            break;
+        }
+        case HS:
+        {
+            ATOMIC_LOGDEBUG("Loaded cached hull shader " + GetFullName());
+            break;
+        }
+        case DS:
+        {
+            ATOMIC_LOGDEBUG("Loaded cached domain shader " + GetFullName());
+            break;
+        }
+        case CS:
+        {
+            ATOMIC_LOGDEBUG("Loaded cached compute shader " + GetFullName());
+            break;
+        }
+        }
 
         CalculateConstantBufferSizes();
         return true;
@@ -250,18 +407,57 @@ bool ShaderVariation::Compile()
 
     defines.Push("D3D11");
 
-    if (type_ == VS)
+    switch (type_)
     {
-        entryPoint = "VS";
-        defines.Push("COMPILEVS");
-        profile = "vs_4_0";
+    case VS:
+    {
+        entryPoint = ShaderEntryPoint[ShaderType::VS];
+        defines.Push(ShaderTypeDefine[ShaderType::VS]);
+        profile = "vs_5_0";
+
+        break;
     }
-    else
+    case PS:
     {
-        entryPoint = "PS";
-        defines.Push("COMPILEPS");
-        profile = "ps_4_0";
+        entryPoint = ShaderEntryPoint[ShaderType::PS];
+        defines.Push(ShaderTypeDefine[ShaderType::PS]);
+        profile = "ps_5_0";
         flags |= D3DCOMPILE_PREFER_FLOW_CONTROL;
+
+        break;
+    }
+    case GS:
+    {
+        entryPoint = ShaderEntryPoint[ShaderType::GS];
+        defines.Push(ShaderTypeDefine[ShaderType::GS]);
+        profile = "gs_5_0";
+
+        break;
+    }
+    case HS:
+    {
+        entryPoint = ShaderEntryPoint[ShaderType::HS];
+        defines.Push(ShaderTypeDefine[ShaderType::HS]);
+        profile = "hs_5_0";
+
+        break;
+    }
+    case DS:
+    {
+        entryPoint = ShaderEntryPoint[ShaderType::DS];
+        defines.Push(ShaderTypeDefine[ShaderType::DS]);
+        profile = "ds_5_0";
+
+        break;
+    }
+    case CS:
+    {
+        entryPoint = ShaderEntryPoint[ShaderType::CS];
+        defines.Push(ShaderTypeDefine[ShaderType::CS]);
+        profile = "cs_5_0";
+
+        break;
+    }
     }
 
     defines.Push("MAXBONES=" + String(Graphics::GetMaxBones()));
@@ -281,6 +477,7 @@ bool ShaderVariation::Compile()
         else
             defineValues.Push("1");
     }
+
     for (unsigned i = 0; i < defines.Size(); ++i)
     {
         D3D_SHADER_MACRO macro;
@@ -313,10 +510,27 @@ bool ShaderVariation::Compile()
     }
     else
     {
-        if (type_ == VS)
+        switch (type_)
+        {
+        case VS:
             ATOMIC_LOGDEBUG("Compiled vertex shader " + GetFullName());
-        else
+            break;
+        case PS:
             ATOMIC_LOGDEBUG("Compiled pixel shader " + GetFullName());
+            break;
+        case GS:
+            ATOMIC_LOGDEBUG("Compiled geometry shader " + GetFullName());
+            break;
+        case HS:
+            ATOMIC_LOGDEBUG("Compiled hull shader " + GetFullName());
+            break;
+        case DS:
+            ATOMIC_LOGDEBUG("Compiled domain shader " + GetFullName());
+            break;
+        case CS:
+            ATOMIC_LOGDEBUG("Compiled compute shader " + GetFullName());
+            break;
+        }
 
         unsigned char* bufData = (unsigned char*)shaderCode->GetBufferPointer();
         unsigned bufSize = (unsigned)shaderCode->GetBufferSize();
@@ -348,11 +562,13 @@ void ShaderVariation::ParseParameters(unsigned char* bufData, unsigned bufSize)
     if (FAILED(hr) || !reflection)
     {
         ATOMIC_SAFE_RELEASE(reflection);
-        ATOMIC_LOGD3DERROR("Failed to reflect vertex shader's input signature", hr);
+        ATOMIC_LOGD3DERROR("Failed to reflect shader's input signature", hr);
         return;
     }
 
     reflection->GetDesc(&shaderDesc);
+
+    // Might need special case for compute
 
     if (type_ == VS)
     {

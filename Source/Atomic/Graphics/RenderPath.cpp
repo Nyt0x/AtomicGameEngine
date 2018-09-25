@@ -212,6 +212,10 @@ void RenderPathCommand::Load(const XMLElement& element)
     // Shader compile flags & parameters
     vertexShaderDefines_ = element.GetAttribute("vsdefines");
     pixelShaderDefines_ = element.GetAttribute("psdefines");
+    geometryShaderDefines_ = element.GetAttribute("gsdefines");
+    hullShaderDefines_ = element.GetAttribute("hsdefines");
+    domainShaderDefines_ = element.GetAttribute("dsdefines");
+    computeShaderDefines_ = element.GetAttribute("csdefines");
     XMLElement parameterElem = element.GetChild("parameter");
     while (parameterElem)
     {

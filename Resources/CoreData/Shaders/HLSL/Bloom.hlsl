@@ -46,46 +46,59 @@ static const float weights[5] = {
     0.1
 };
 
-void VS(float4 iPos : POSITION,
-    out float2 oTexCoord : TEXCOORD0,
-    out float2 oScreenPos : TEXCOORD1,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 iPos : POSITION;
+};
+
+struct PixelIn
+{
+    float2 TexCoord : TEXCOORD0;
+    float2 ScreenPos : TEXCOORD1;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oTexCoord = GetQuadTexCoord(oPos) + cBlurHOffsets;
-    oScreenPos = GetScreenPosPreDiv(oPos);
+    Out.Pos = GetClipPos(worldPos);
+    Out.TexCoord = GetQuadTexCoord(Out.Pos) + cBlurHOffsets;
+    Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
 }
 
-void PS(float2 iTexCoord : TEXCOORD0,
-    float2 iScreenPos : TEXCOORD1,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     #ifdef BRIGHT
-    float3 rgb = Sample2D(DiffMap, iScreenPos).rgb;
-    oColor = float4((rgb - cBloomThreshold) / (1.0 - cBloomThreshold), 1.0);
+    float3 rgb = Sample2D(DiffMap, In.ScreenPos).rgb;
+    Out.Color = float4((rgb - cBloomThreshold) / (1.0 - cBloomThreshold), 1.0);
     #endif
 
     #ifdef BLURH
     float3 rgb = 0.0;
     for (int i = 0; i < 5; ++i)
-        rgb += Sample2D(DiffMap, iTexCoord + (float2(offsets[i], 0.0)) * cBlurHInvSize).rgb * weights[i];
-    oColor = float4(rgb, 1.0);
+        rgb += Sample2D(DiffMap, In.TexCoord + (float2(offsets[i], 0.0)) * cBlurHInvSize).rgb * weights[i];
+    Out.Color = float4(rgb, 1.0);
     #endif
 
     #ifdef BLURV
     float3 rgb = 0.0;
     for (int i = 0; i < 5; ++i)
-        rgb += Sample2D(DiffMap, iTexCoord + (float2(0.0, offsets[i])) * cBlurHInvSize).rgb * weights[i];
-    oColor = float4(rgb, 1.0);
+        rgb += Sample2D(DiffMap, In.TexCoord + (float2(0.0, offsets[i])) * cBlurHInvSize).rgb * weights[i];
+    Out.Color = float4(rgb, 1.0);
     #endif
 
     #ifdef COMBINE
-    float3 original = Sample2D(DiffMap, iScreenPos).rgb * cBloomMix.x;
-    float3 bloom = Sample2D(NormalMap, iTexCoord).rgb  * cBloomMix.y;
+    float3 original = Sample2D(DiffMap, In.ScreenPos).rgb * cBloomMix.x;
+    float3 bloom = Sample2D(NormalMap, In.TexCoord).rgb  * cBloomMix.y;
     // Prevent oversaturation
     original *= saturate(1.0 - bloom);
-    oColor = float4(original + bloom, 1.0);
+    Out.Color = float4(original + bloom, 1.0);
     #endif
 }

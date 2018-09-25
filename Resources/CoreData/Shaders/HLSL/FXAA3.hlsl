@@ -695,23 +695,36 @@ float4 FxaaPixelShader(
                       
 ============================================================================*/
 
-void VS(float4 iPos : POSITION,
-    out float2 oScreenPos : TEXCOORD0,
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+};
+
+struct PixelIn
+{
+    float2 ScreenPos : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
-    oScreenPos = GetScreenPosPreDiv(oPos);
+    Out.Pos = GetClipPos(worldPos);
+    Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
 }
 
-void PS(float2 iScreenPos : TEXCOORD0,
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     float2 rcpFrame = float2(cGBufferInvSize.x, cGBufferInvSize.y);
 
-    oColor = FxaaPixelShader(
-        iScreenPos,                         // float2 pos,
+    Out.Color = FxaaPixelShader(
+        In.ScreenPos,                       // float2 pos,
         rcpFrame,                           // float2 fxaaQualityRcpFrame,
         0.75f,                              // float fxaaQualitySubpix,
         0.166f,                             // float fxaaQualityEdgeThreshold,

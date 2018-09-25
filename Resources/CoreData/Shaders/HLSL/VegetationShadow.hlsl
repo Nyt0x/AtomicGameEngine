@@ -23,26 +23,35 @@ cbuffer CustomVS : register(b6)
 
 #endif
 
-void VS(float4 iPos : POSITION,
+struct VertexIn
+{
+    float4 Pos : POSITION;
     #ifdef SKINNED
-        float4 iBlendWeights : BLENDWEIGHT,
-        int4 iBlendIndices : BLENDINDICES,
+        float4 BlendWeights : BLENDWEIGHT;
+        int4 BlendIndices : BLENDINDICES;
     #endif
     #ifdef INSTANCED
-        float4x3 iModelInstance : TEXCOORD4,
+        float4x3 ModelInstance : TEXCOORD4;
     #endif
-    float2 iTexCoord : TEXCOORD0,
-    out float2 oTexCoord : TEXCOORD0,
-    out float4 oPos : OUTPOSITION)
+    float2 TexCoord : TEXCOORD0;
+};
+
+struct PixelIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float2 TexCoord : TEXCOORD0;
+    float4 Pos : OUTPOSITION;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
 
-    float windStrength = max(iPos.y - cWindHeightPivot, 0.0) * cWindHeightFactor;
+    float windStrength = max(In.Pos.y - cWindHeightPivot, 0.0) * cWindHeightFactor;
     float windPeriod = cElapsedTime * cWindPeriod + dot(worldPos.xz, cWindWorldSpacing);
     worldPos.x += windStrength * sin(windPeriod);
     worldPos.z -= windStrength * cos(windPeriod);
 
-    oPos = GetClipPos(worldPos);
-    oTexCoord = GetTexCoord(iTexCoord);
+    Out.Pos = GetClipPos(worldPos);
+    Out.TexCoord = GetTexCoord(In.TexCoord);
 }

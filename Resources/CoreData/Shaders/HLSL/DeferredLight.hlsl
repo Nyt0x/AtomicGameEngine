@@ -4,73 +4,77 @@
 #include "ScreenPos.hlsl"
 #include "Lighting.hlsl"
 
-void VS(float4 iPos : POSITION,
-    #ifdef DIRLIGHT
-        out float2 oScreenPos : TEXCOORD0,
-    #else
-        out float4 oScreenPos : TEXCOORD0,
-    #endif
-    out float3 oFarRay : TEXCOORD1,
-    #ifdef ORTHO
-        out float3 oNearRay : TEXCOORD2,
-    #endif
-    out float4 oPos : OUTPOSITION)
+struct VertexIn
 {
-    float4x3 modelMatrix = iModelMatrix;
+    float4 Pos : POSITION;
+};
+
+struct PixelIn
+{
+#ifdef DIRLIGHT
+    float2 ScreenPos : TEXCOORD0;
+#else
+    float4 ScreenPos : TEXCOORD0;
+#endif
+    float3 FarRay : TEXCOORD1;
+#ifdef ORTHO
+    float3 NearRay : TEXCOORD2;
+#endif
+    float4 Pos : OUTPOSITION;
+};
+
+struct PixelOut
+{
+    float4 Color : OUTCOLOR0;
+};
+
+void VS(VertexIn In, out PixelIn Out)
+{
+    float4x3 modelMatrix = ModelMatrix;
     float3 worldPos = GetWorldPos(modelMatrix);
-    oPos = GetClipPos(worldPos);
+    Out.Pos = GetClipPos(worldPos);
     #ifdef DIRLIGHT
-        oScreenPos = GetScreenPosPreDiv(oPos);
-        oFarRay = GetFarRay(oPos);
+        Out.ScreenPos = GetScreenPosPreDiv(Out.Pos);
+        Out.FarRay = GetFarRay(Out.Pos);
         #ifdef ORTHO
-            oNearRay = GetNearRay(oPos);
+            Out.NearRay = GetNearRay(Out.Pos);
         #endif
     #else
-        oScreenPos = GetScreenPos(oPos);
-        oFarRay = GetFarRay(oPos) * oPos.w;
+        Out.ScreenPos = GetScreenPos(Out.Pos);
+        Out.FarRay = GetFarRay(Out.Pos) * Out.Pos.w;
         #ifdef ORTHO
-            oNearRay = GetNearRay(oPos) * oPos.w;
+            Out.NearRay = GetNearRay(Out.Pos) * Out.Pos.w;
         #endif
     #endif
 }
 
-void PS(
-    #ifdef DIRLIGHT
-        float2 iScreenPos : TEXCOORD0,
-    #else
-        float4 iScreenPos : TEXCOORD0,
-    #endif
-    float3 iFarRay : TEXCOORD1,
-    #ifdef ORTHO
-        float3 iNearRay : TEXCOORD2,
-    #endif
-    out float4 oColor : OUTCOLOR0)
+void PS(PixelIn In, out PixelOut Out)
 {
     // If rendering a directional light quad, optimize out the w divide
     #ifdef DIRLIGHT
-        float depth = Sample2DLod0(DepthBuffer, iScreenPos).r;
+        float depth = Sample2DLod0(DepthBuffer, In.ScreenPos).r;
         #ifdef HWDEPTH
             depth = ReconstructDepth(depth);
         #endif
         #ifdef ORTHO
-            float3 worldPos = lerp(iNearRay, iFarRay, depth);
+            float3 worldPos = lerp(In.NearRay, In.FarRay, depth);
         #else
-            float3 worldPos = iFarRay * depth;
+            float3 worldPos = In.FarRay * depth;
         #endif
-        float4 albedoInput = Sample2DLod0(AlbedoBuffer, iScreenPos);
-        float4 normalInput = Sample2DLod0(NormalBuffer, iScreenPos);
+        float4 albedoInput = Sample2DLod0(AlbedoBuffer, In.ScreenPos);
+        float4 normalInput = Sample2DLod0(NormalBuffer, In.ScreenPos);
     #else
-        float depth = Sample2DProj(DepthBuffer, iScreenPos).r;
+        float depth = Sample2DProj(DepthBuffer, In.ScreenPos).r;
         #ifdef HWDEPTH
             depth = ReconstructDepth(depth);
         #endif
         #ifdef ORTHO
-            float3 worldPos = lerp(iNearRay, iFarRay, depth) / iScreenPos.w;
+            float3 worldPos = lerp(In.NearRay, In.FarRay, depth) / In.ScreenPos.w;
         #else
-            float3 worldPos = iFarRay * depth / iScreenPos.w;
+            float3 worldPos = In.FarRay * depth / In.ScreenPos.w;
         #endif
-        float4 albedoInput = Sample2DProj(AlbedoBuffer, iScreenPos);
-        float4 normalInput = Sample2DProj(NormalBuffer, iScreenPos);
+        float4 albedoInput = Sample2DProj(AlbedoBuffer, In.ScreenPos);
+        float4 normalInput = Sample2DProj(NormalBuffer, In.ScreenPos);
     #endif
 
     // Position acquired via near/far ray is relative to camera. Bring position to world space
@@ -99,8 +103,8 @@ void PS(
 
     #ifdef SPECULAR
         float spec = GetSpecular(normal, eyeVec, lightDir, normalInput.a * 255.0);
-        oColor = diff * float4(lightColor * (albedoInput.rgb + spec * cLightColor.a * albedoInput.aaa), 0.0);
+        Out.Color = diff * float4(lightColor * (albedoInput.rgb + spec * cLightColor.a * albedoInput.aaa), 0.0);
     #else
-        oColor = diff * float4(lightColor * albedoInput.rgb, 0.0);
+        Out.Color = diff * float4(lightColor * albedoInput.rgb, 0.0);
     #endif
 }
